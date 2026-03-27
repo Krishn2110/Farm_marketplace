@@ -22,7 +22,6 @@ import { getOptionalSession } from "@/lib/auth";
 import { LoadingLink, NavigationProgressProvider } from "@/app/ui/navigation-progress";
 
 const poppins = Poppins({
-  variable: "--font-poppins",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
 });
@@ -201,7 +200,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="h-full scroll-smooth">
-      <body className={`${poppins.variable} font-sans antialiased min-h-full bg-white text-stone-950`}>
+      <body className={`${poppins.className} min-h-full bg-white text-stone-950 antialiased`}>
         <NavigationProgressProvider>
           <div className="relative flex min-h-screen flex-col">
             <Header />
