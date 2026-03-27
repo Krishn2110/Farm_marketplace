@@ -1,16 +1,9 @@
 import type { Metadata } from "next";
-import { Poppins } from "next/font/google";
 import Link from "next/link";
 
 import "./globals.css";
 import { logoutAction } from "@/app/actions";
 import { getOptionalSession } from "@/lib/auth";
-
-const poppins = Poppins({
-  variable: "--font-poppins",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-});
 
 export const metadata: Metadata = {
   title: "Farm Marketplace",
@@ -44,6 +37,9 @@ async function Header() {
           </Link>
           <Link className="nav-link" href="/listings">
             Listings
+          </Link>
+          <Link className="nav-link" href="/market-data">
+            Market Data
           </Link>
           {session ? (
             <>
@@ -87,6 +83,9 @@ function Footer() {
           <Link className="hover:text-emerald-800" href="/listings">
             Listings
           </Link>
+          <Link className="hover:text-emerald-800" href="/market-data">
+            Market Data
+          </Link>
           <Link className="hover:text-emerald-800" href="/login">
             Login
           </Link>
@@ -105,7 +104,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${poppins.variable} h-full antialiased`}>
+    <html lang="en" className="h-full antialiased">
       <body className="min-h-full bg-[linear-gradient(180deg,#fff8ee_0%,#f6f3eb_52%,#eef7f0_100%)] text-stone-950">
         <div className="absolute inset-x-0 top-0 -z-10 h-[32rem] bg-[radial-gradient(circle_at_top,_rgba(246,190,92,0.18),_transparent_46%),radial-gradient(circle_at_left,_rgba(21,128,61,0.16),_transparent_35%)]" />
         <div className="flex min-h-screen flex-col">
