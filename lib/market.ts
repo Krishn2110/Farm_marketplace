@@ -244,6 +244,16 @@ export async function getDashboardData(userId: string) {
     };
   });
 
+  const listingProducts = await Promise.all(
+    (user.role === "buyer" ? store.products : myProducts).map(async (product) => {
+      const farmer = await getUserById(product.farmerId);
+      return {
+        ...product,
+        farmerName: farmer?.name ?? "Farmer",
+      };
+    }),
+  );
+
   return {
     user: {
       ...user,
@@ -251,6 +261,7 @@ export async function getDashboardData(userId: string) {
       reviewCount: reviewStats.reviewCount,
     },
     myProducts,
+    listingProducts,
     heroText:
       user.role === "farmer"
         ? "Manage produce listings, respond to offers, and convert negotiations into paid deliveries."

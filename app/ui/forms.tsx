@@ -2,6 +2,28 @@
 
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
+import { 
+  Mail, 
+  Lock, 
+  User, 
+  MapPin, 
+  Building, 
+  Globe, 
+  Package, 
+  DollarSign, 
+  Calendar, 
+  Image, 
+  Leaf, 
+  Truck, 
+  MessageSquare,
+  Star,
+  CheckCircle2,
+  AlertCircle,
+  ArrowRight,
+  Upload,
+  X,
+  Plus
+} from "lucide-react";
 
 import {
   acceptOfferAction,
@@ -31,15 +53,22 @@ function FormFeedback({ state }: { state: FormState }) {
   }
 
   return (
-    <p
-      className={`mt-4 rounded-2xl px-4 py-3 text-sm ${
+    <div
+      className={`mt-4 rounded-xl p-4 flex items-start gap-3 ${
         state.error
-          ? "border border-rose-200 bg-rose-50 text-rose-700"
-          : "border border-emerald-200 bg-emerald-50 text-emerald-800"
+          ? "bg-red-50 border border-red-200"
+          : "bg-emerald-50 border border-emerald-200"
       }`}
     >
-      {state.error ?? state.success}
-    </p>
+      {state.error ? (
+        <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+      ) : (
+        <CheckCircle2 className="h-5 w-5 text-emerald-500 flex-shrink-0 mt-0.5" />
+      )}
+      <p className={`text-sm ${state.error ? "text-red-700" : "text-emerald-800"}`}>
+        {state.error ?? state.success}
+      </p>
+    </div>
   );
 }
 
@@ -64,17 +93,174 @@ function PendingSubmitButton({
   className,
   idle,
   loading,
+  variant = "primary",
 }: {
-  className: string;
+  className?: string;
   idle: string;
   loading: string;
+  variant?: "primary" | "secondary" | "danger";
 }) {
   const { pending } = useFormStatus();
+  
+  const variantClasses = {
+    primary: "bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white shadow-sm hover:shadow-md",
+    secondary: "bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-200",
+    danger: "bg-red-600 hover:bg-red-700 text-white"
+  };
 
   return (
-    <button className={className} disabled={pending} type="submit">
+    <button 
+      className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed ${variantClasses[variant]} ${className || ''}`}
+      disabled={pending} 
+      type="submit"
+    >
       <ButtonLabel idle={idle} loading={loading} pending={pending} />
     </button>
+  );
+}
+
+function FormInput({ 
+  id, 
+  name, 
+  label, 
+  type = "text", 
+  required = false, 
+  placeholder = "",
+  defaultValue = "",
+  icon: Icon,
+  autoComplete,
+  min,
+  max,
+  step
+}: { 
+  id: string; 
+  name: string; 
+  label: string; 
+  type?: string; 
+  required?: boolean;
+  placeholder?: string;
+  defaultValue?: string;
+  icon?: any;
+  autoComplete?: string;
+  min?: number | string;
+  max?: number | string;
+  step?: number | string;
+}) {
+  return (
+    <div>
+      <label className="block text-sm font-semibold text-gray-700 mb-2" htmlFor={id}>
+        {label}
+        {required && <span className="text-red-500 ml-1">*</span>}
+      </label>
+      <div className="relative">
+        {Icon && (
+          <div className="absolute left-3 top-1/2 -translate-y-1/2">
+            <Icon className="h-4 w-4 text-gray-400" />
+          </div>
+        )}
+        <input
+          autoComplete={autoComplete}
+          className={`w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-gray-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all ${Icon ? 'pl-10' : ''}`}
+          defaultValue={defaultValue}
+          id={id}
+          max={max}
+          min={min}
+          name={name}
+          placeholder={placeholder}
+          required={required}
+          step={step}
+          type={type}
+        />
+      </div>
+    </div>
+  );
+}
+
+function FormSelect({ 
+  id, 
+  name, 
+  label, 
+  options, 
+  required = false, 
+  defaultValue = "",
+  icon: Icon
+}: { 
+  id: string; 
+  name: string; 
+  label: string; 
+  options: { value: string; label: string }[]; 
+  required?: boolean;
+  defaultValue?: string;
+  icon?: any;
+}) {
+  return (
+    <div>
+      <label className="block text-sm font-semibold text-gray-700 mb-2" htmlFor={id}>
+        {label}
+        {required && <span className="text-red-500 ml-1">*</span>}
+      </label>
+      <div className="relative">
+        {Icon && (
+          <div className="absolute left-3 top-1/2 -translate-y-1/2">
+            <Icon className="h-4 w-4 text-gray-400" />
+          </div>
+        )}
+        <select
+          className={`w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-gray-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 appearance-none ${Icon ? 'pl-10' : ''}`}
+          defaultValue={defaultValue}
+          id={id}
+          name={name}
+          required={required}
+        >
+          {options.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+          <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FormTextarea({ 
+  id, 
+  name, 
+  label, 
+  required = false, 
+  placeholder = "",
+  defaultValue = "",
+  rows = 4
+}: { 
+  id: string; 
+  name: string; 
+  label: string; 
+  required?: boolean;
+  placeholder?: string;
+  defaultValue?: string;
+  rows?: number;
+}) {
+  return (
+    <div>
+      <label className="block text-sm font-semibold text-gray-700 mb-2" htmlFor={id}>
+        {label}
+        {required && <span className="text-red-500 ml-1">*</span>}
+      </label>
+      <textarea
+        className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-gray-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all resize-y"
+        defaultValue={defaultValue}
+        id={id}
+        name={name}
+        placeholder={placeholder}
+        required={required}
+        rows={rows}
+      />
+    </div>
   );
 }
 
@@ -82,38 +268,30 @@ export function LoginForm() {
   const [state, action, pending] = useActionState(loginAction, initialState);
 
   return (
-    <form action={action} className="grid gap-4">
-      <div>
-        <label className="label" htmlFor="login-email">
-          Email
-        </label>
-        <input
-          autoComplete="email"
-          className="field mt-2"
-          id="login-email"
-          name="email"
-          required
-          type="email"
-        />
-      </div>
-      <div>
-        <label className="label" htmlFor="login-password">
-          Password
-        </label>
-        <input
-          autoComplete="current-password"
-          className="field mt-2"
-          id="login-password"
-          minLength={6}
-          name="password"
-          required
-          type="password"
-        />
-      </div>
-      <button className="btn-primary mt-2" disabled={pending} type="submit">
-        <ButtonLabel idle="Login" loading="Signing in..." pending={pending} />
-      </button>
-      <LoadingLink className="text-sm font-medium text-emerald-800" href="/forgot-password">
+    <form action={action} className="space-y-5">
+      <FormInput
+        id="login-email"
+        name="email"
+        label="Email Address"
+        type="email"
+        required
+        autoComplete="email"
+        icon={Mail}
+      />
+      <FormInput
+        id="login-password"
+        name="password"
+        label="Password"
+        type="password"
+        required
+        autoComplete="current-password"
+        icon={Lock}
+      />
+      <PendingSubmitButton idle="Sign in" loading="Signing in..." />
+      <LoadingLink 
+        className="inline-block text-sm font-medium text-emerald-600 hover:text-emerald-700 transition-colors" 
+        href="/forgot-password"
+      >
         Forgot password?
       </LoadingLink>
       <FormFeedback state={state} />
@@ -128,29 +306,19 @@ export function ForgotPasswordForm() {
   );
 
   return (
-    <form action={action} className="grid gap-4">
-      <div>
-        <label className="label" htmlFor="forgot-email">
-          Account email
-        </label>
-        <input
-          autoComplete="email"
-          className="field mt-2"
-          id="forgot-email"
-          name="email"
-          required
-          type="email"
-        />
-      </div>
-      <button className="btn-primary mt-2" disabled={pending} type="submit">
-        <ButtonLabel
-          idle="Generate reset link"
-          loading="Generating link..."
-          pending={pending}
-        />
-      </button>
-      <p className="text-xs leading-6 text-stone-500">
-        Development mode: generated token is logged on the server console.
+    <form action={action} className="space-y-5">
+      <FormInput
+        id="forgot-email"
+        name="email"
+        label="Account Email"
+        type="email"
+        required
+        autoComplete="email"
+        icon={Mail}
+      />
+      <PendingSubmitButton idle="Send reset link" loading="Sending..." />
+      <p className="text-xs text-gray-500 bg-gray-50 rounded-lg p-3">
+        Development mode: reset link is logged on the server console
       </p>
       <FormFeedback state={state} />
     </form>
@@ -161,39 +329,27 @@ export function ResetPasswordForm({ token }: { token: string }) {
   const [state, action, pending] = useActionState(resetPasswordAction, initialState);
 
   return (
-    <form action={action} className="grid gap-4">
+    <form action={action} className="space-y-5">
       <input name="token" type="hidden" value={token} />
-      <div>
-        <label className="label" htmlFor="reset-password">
-          New password
-        </label>
-        <input
-          autoComplete="new-password"
-          className="field mt-2"
-          id="reset-password"
-          minLength={6}
-          name="password"
-          required
-          type="password"
-        />
-      </div>
-      <div>
-        <label className="label" htmlFor="reset-confirm-password">
-          Confirm password
-        </label>
-        <input
-          autoComplete="new-password"
-          className="field mt-2"
-          id="reset-confirm-password"
-          minLength={6}
-          name="confirmPassword"
-          required
-          type="password"
-        />
-      </div>
-      <button className="btn-primary mt-2" disabled={pending} type="submit">
-        <ButtonLabel idle="Update password" loading="Updating..." pending={pending} />
-      </button>
+      <FormInput
+        id="reset-password"
+        name="password"
+        label="New Password"
+        type="password"
+        required
+        autoComplete="new-password"
+        icon={Lock}
+      />
+      <FormInput
+        id="reset-confirm-password"
+        name="confirmPassword"
+        label="Confirm Password"
+        type="password"
+        required
+        autoComplete="new-password"
+        icon={Lock}
+      />
+      <PendingSubmitButton idle="Update password" loading="Updating..." />
       <FormFeedback state={state} />
     </form>
   );
@@ -203,109 +359,88 @@ export function SignupForm() {
   const [state, action, pending] = useActionState(signupAction, initialState);
 
   return (
-    <form action={action} className="grid gap-4">
-      <div>
-        <label className="label" htmlFor="signup-name">
-          Full name
-        </label>
-        <input
-          autoComplete="name"
-          className="field mt-2"
+    <form action={action} className="space-y-5">
+      <div className="grid gap-5 sm:grid-cols-2">
+        <FormInput
           id="signup-name"
           name="name"
+          label="Full Name"
           required
+          autoComplete="name"
+          icon={User}
         />
-      </div>
-      <div>
-        <label className="label" htmlFor="signup-email">
-          Email
-        </label>
-        <input
-          autoComplete="email"
-          className="field mt-2"
+        <FormInput
           id="signup-email"
           name="email"
-          required
+          label="Email"
           type="email"
-        />
-      </div>
-      <div>
-        <label className="label" htmlFor="signup-password">
-          Password
-        </label>
-        <input
-          autoComplete="new-password"
-          className="field mt-2"
-          id="signup-password"
-          minLength={6}
-          name="password"
           required
-          type="password"
+          autoComplete="email"
+          icon={Mail}
         />
       </div>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <label className="label" htmlFor="signup-role">
-            Role
-          </label>
-          <select
-            className="field mt-2"
-            defaultValue="farmer"
-            id="signup-role"
-            name="role"
-            required
-          >
-            <option value="farmer">Farmer</option>
-            <option value="buyer">Buyer</option>
-            <option value="admin">Admin</option>
-          </select>
-        </div>
-        <div>
-          <label className="label" htmlFor="signup-location">
-            Location
-          </label>
-          <input
-            autoComplete="address-level2"
-            className="field mt-2"
-            id="signup-location"
-            name="location"
-            required
-          />
-        </div>
-      </div>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <label className="label" htmlFor="signup-farm-type">
-            Farm type
-          </label>
-          <input className="field mt-2" id="signup-farm-type" name="farmType" />
-        </div>
-        <div>
-          <label className="label" htmlFor="signup-business-type">
-            Business type
-          </label>
-          <input className="field mt-2" id="signup-business-type" name="businessType" />
-        </div>
-      </div>
-      <div>
-        <label className="label" htmlFor="signup-languages">
-          Languages
-        </label>
-        <input
-          className="field mt-2"
-          defaultValue="English, Hindi"
-          id="signup-languages"
-          name="languages"
-          placeholder="English, Hindi, Gujarati"
+      
+      <FormInput
+        id="signup-password"
+        name="password"
+        label="Password"
+        type="password"
+        required
+        autoComplete="new-password"
+        icon={Lock}
+      />
+      
+      <div className="grid gap-5 sm:grid-cols-2">
+        <FormSelect
+          id="signup-role"
+          name="role"
+          label="Role"
+          options={[
+            { value: "farmer", label: "Farmer" },
+            { value: "buyer", label: "Buyer" },
+            { value: "admin", label: "Admin" },
+          ]}
+          required
+          defaultValue="farmer"
+          icon={User}
+        />
+        <FormInput
+          id="signup-location"
+          name="location"
+          label="Location"
+          required
+          autoComplete="address-level2"
+          icon={MapPin}
         />
       </div>
-      <button className="btn-primary mt-2" disabled={pending} type="submit">
-        <ButtonLabel
-          idle="Create account"
-          loading="Creating account..."
-          pending={pending}
+      
+      <div className="grid gap-5 sm:grid-cols-2">
+        <FormInput
+          id="signup-farm-type"
+          name="farmType"
+          label="Farm Type"
+          placeholder="e.g., Organic Farm, Mixed Crop"
+          icon={Leaf}
         />
-      </button>
+        <FormInput
+          id="signup-business-type"
+          name="businessType"
+          label="Business Type"
+          placeholder="e.g., Restaurant, Retail, Wholesale"
+          icon={Building}
+        />
+      </div>
+      
+      <FormInput
+        id="signup-languages"
+        name="languages"
+        label="Languages"
+        placeholder="English, Hindi, Gujarati"
+        defaultValue="English, Hindi"
+        icon={Globe}
+      />
+      
+      <PendingSubmitButton idle="Create account" loading="Creating account..." />
       <FormFeedback state={state} />
     </form>
   );
@@ -315,16 +450,17 @@ export function DemoLoginButtons() {
   return (
     <div className="flex flex-wrap gap-3">
       {[
-        { label: "Farmer demo", value: "farmer" },
-        { label: "Buyer demo", value: "buyer" },
-        { label: "Admin demo", value: "admin" },
+        { label: "Farmer demo", value: "farmer", color: "emerald" },
+        { label: "Buyer demo", value: "buyer", color: "blue" },
+        { label: "Admin demo", value: "admin", color: "purple" },
       ].map((item) => (
         <form action={quickDemoLoginAction} key={item.value}>
           <input name="role" type="hidden" value={item.value} />
           <PendingSubmitButton
-            className="btn-secondary"
+            className={`bg-${item.color}-50 text-${item.color}-700 hover:bg-${item.color}-100 border-${item.color}-200`}
             idle={item.label}
-            loading="Opening demo..."
+            loading="Loading..."
+            variant="secondary"
           />
         </form>
       ))}
@@ -336,56 +472,38 @@ export function ProfileForm({ user }: { user: UserRecord }) {
   const [state, action, pending] = useActionState(updateProfileAction, initialState);
 
   return (
-    <form action={action} className="grid gap-4">
-      <div>
-        <label className="label" htmlFor="profile-location">
-          Location
-        </label>
-        <input
-          className="field mt-2"
-          defaultValue={user.location}
-          id="profile-location"
-          name="location"
+    <form action={action} className="space-y-5">
+      <FormInput
+        id="profile-location"
+        name="location"
+        label="Location"
+        defaultValue={user.location}
+        icon={MapPin}
+      />
+      <div className="grid gap-5 sm:grid-cols-2">
+        <FormInput
+          id="profile-farmType"
+          name="farmType"
+          label="Farm Type"
+          defaultValue={user.farmType ?? ""}
+          icon={Leaf}
+        />
+        <FormInput
+          id="profile-businessType"
+          name="businessType"
+          label="Business Type"
+          defaultValue={user.businessType ?? ""}
+          icon={Building}
         />
       </div>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <label className="label" htmlFor="profile-farmType">
-            Farm type
-          </label>
-          <input
-            className="field mt-2"
-            defaultValue={user.farmType ?? ""}
-            id="profile-farmType"
-            name="farmType"
-          />
-        </div>
-        <div>
-          <label className="label" htmlFor="profile-businessType">
-            Business type
-          </label>
-          <input
-            className="field mt-2"
-            defaultValue={user.businessType ?? ""}
-            id="profile-businessType"
-            name="businessType"
-          />
-        </div>
-      </div>
-      <div>
-        <label className="label" htmlFor="profile-languages">
-          Languages
-        </label>
-        <input
-          className="field mt-2"
-          defaultValue={user.languages.join(", ")}
-          id="profile-languages"
-          name="languages"
-        />
-      </div>
-      <button className="btn-primary mt-2" disabled={pending} type="submit">
-        <ButtonLabel idle="Save profile" loading="Saving..." pending={pending} />
-      </button>
+      <FormInput
+        id="profile-languages"
+        name="languages"
+        label="Languages"
+        defaultValue={user.languages.join(", ")}
+        icon={Globe}
+      />
+      <PendingSubmitButton idle="Save changes" loading="Saving..." />
       <FormFeedback state={state} />
     </form>
   );
@@ -395,147 +513,133 @@ export function FarmerListingForm({ location }: { location: string }) {
   const [state, action, pending] = useActionState(createListingAction, initialState);
 
   return (
-    <form action={action} className="grid gap-4" encType="multipart/form-data">
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <label className="label" htmlFor="listing-title">
-            Product name
-          </label>
-          <input className="field mt-2" id="listing-title" name="title" required />
-        </div>
-        <div>
-          <label className="label" htmlFor="listing-category">
-            Category
-          </label>
-          <select
-            className="field mt-2"
-            defaultValue="Vegetables"
-            id="listing-category"
-            name="category"
-          >
-            <option value="Vegetables">Vegetables</option>
-            <option value="Fruits">Fruits</option>
-            <option value="Grains">Grains</option>
-          </select>
-        </div>
+    <form action={action} className="space-y-5" encType="multipart/form-data">
+      <div className="grid gap-5 sm:grid-cols-2">
+        <FormInput
+          id="listing-title"
+          name="title"
+          label="Product Name"
+          required
+          icon={Package}
+        />
+        <FormSelect
+          id="listing-category"
+          name="category"
+          label="Category"
+          options={[
+            { value: "Vegetables", label: "Vegetables" },
+            { value: "Fruits", label: "Fruits" },
+            { value: "Grains", label: "Grains" },
+          ]}
+          required
+          defaultValue="Vegetables"
+        />
       </div>
-      <div className="grid gap-4 sm:grid-cols-3">
-        <div>
-          <label className="label" htmlFor="listing-price">
-            Price
-          </label>
-          <input
-            className="field mt-2"
-            id="listing-price"
-            min={0.01}
-            name="price"
-            required
-            step="0.01"
-            type="number"
-          />
-        </div>
-        <div>
-          <label className="label" htmlFor="listing-quantity">
-            Quantity
-          </label>
-          <input
-            className="field mt-2"
-            id="listing-quantity"
-            min={0.01}
-            name="quantity"
-            required
-            step="0.01"
-            type="number"
-          />
-        </div>
-        <div>
-          <label className="label" htmlFor="listing-unit">
-            Unit
-          </label>
-          <input className="field mt-2" defaultValue="kg" id="listing-unit" name="unit" />
-        </div>
-      </div>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <label className="label" htmlFor="listing-harvest">
-            Harvest date
-          </label>
-          <input
-            className="field mt-2"
-            id="listing-harvest"
-            name="harvestDate"
-            required
-            type="date"
-          />
-        </div>
-        <div>
-          <label className="label" htmlFor="listing-location">
-            Location
-          </label>
-          <input
-            className="field mt-2"
-            defaultValue={location}
-            id="listing-location"
-            name="location"
-            required
-          />
-        </div>
-      </div>
-      <div>
-        <label className="label" htmlFor="listing-freshness">
-          Freshness note
-        </label>
-        <textarea
-          className="field mt-2 min-h-28"
-          defaultValue="Freshly harvested today"
-          id="listing-freshness"
-          name="freshnessNote"
+      
+      <div className="grid gap-5 sm:grid-cols-3">
+        <FormInput
+          id="listing-price"
+          name="price"
+          label="Price"
+          type="number"
+          min={0.01}
+          step="0.01"
+          required
+          icon={DollarSign}
+        />
+        <FormInput
+          id="listing-quantity"
+          name="quantity"
+          label="Quantity"
+          type="number"
+          min={0.01}
+          step="0.01"
+          required
+          icon={Package}
+        />
+        <FormInput
+          id="listing-unit"
+          name="unit"
+          label="Unit"
+          defaultValue="kg"
           required
         />
       </div>
-      <div>
-        <label className="label" htmlFor="listing-images">
-          Product images
-        </label>
-        <input
-          accept="image/jpeg,image/png,image/webp"
-          className="field mt-2"
-          id="listing-images"
-          multiple
-          name="images"
-          type="file"
+      
+      <div className="grid gap-5 sm:grid-cols-2">
+        <FormInput
+          id="listing-harvest"
+          name="harvestDate"
+          label="Harvest Date"
+          type="date"
+          required
+          icon={Calendar}
         />
-        <p className="mt-2 text-xs text-stone-500">
+        <FormInput
+          id="listing-location"
+          name="location"
+          label="Location"
+          defaultValue={location}
+          required
+          icon={MapPin}
+        />
+      </div>
+      
+      <FormTextarea
+        id="listing-freshness"
+        name="freshnessNote"
+        label="Freshness Note"
+        required
+        defaultValue="Freshly harvested today"
+        placeholder="Describe the freshness, quality, and any special characteristics..."
+      />
+      
+      <div>
+        <label className="block text-sm font-semibold text-gray-700 mb-2">
+          Product Images
+        </label>
+        <div className="relative">
+          <input
+            accept="image/jpeg,image/png,image/webp"
+            className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700 file:mr-3 file:rounded-lg file:border-0 file:bg-emerald-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-emerald-700 hover:file:bg-emerald-100"
+            id="listing-images"
+            multiple
+            name="images"
+            type="file"
+          />
+        </div>
+        <p className="mt-2 text-xs text-gray-500">
           Optional. Upload up to 4 images (JPG, PNG, WEBP), max 5MB each.
         </p>
       </div>
-      <div className="grid gap-4 sm:grid-cols-2">
+      
+      <div className="grid gap-5 sm:grid-cols-2">
+        <FormSelect
+          id="listing-organic"
+          name="organic"
+          label="Organic"
+          options={[
+            { value: "yes", label: "Yes" },
+            { value: "no", label: "No" },
+          ]}
+          defaultValue="yes"
+        />
         <div>
-          <label className="label" htmlFor="listing-organic">
-            Organic
-          </label>
-          <select className="field mt-2" defaultValue="yes" id="listing-organic" name="organic">
-            <option value="yes">Yes</option>
-            <option value="no">No</option>
-          </select>
-        </div>
-        <div>
-          <span className="label">Delivery options</span>
-          <div className="mt-3 flex flex-wrap gap-4 text-sm text-stone-700">
-            <label className="flex items-center gap-2">
-              <input defaultChecked name="deliveryOptions" type="checkbox" value="self" />
-              Self-delivery
+          <span className="block text-sm font-semibold text-gray-700 mb-2">Delivery Options</span>
+          <div className="flex flex-wrap gap-4">
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <input defaultChecked name="deliveryOptions" type="checkbox" value="self" className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500" />
+              <span>Self-delivery</span>
             </label>
-            <label className="flex items-center gap-2">
-              <input defaultChecked name="deliveryOptions" type="checkbox" value="platform" />
-              Platform delivery
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <input defaultChecked name="deliveryOptions" type="checkbox" value="platform" className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500" />
+              <span>Platform delivery</span>
             </label>
           </div>
         </div>
       </div>
-      <button className="btn-primary mt-2" disabled={pending} type="submit">
-        <ButtonLabel idle="Publish listing" loading="Publishing..." pending={pending} />
-      </button>
+      
+      <PendingSubmitButton idle="Publish listing" loading="Publishing..." />
       <FormFeedback state={state} />
     </form>
   );
@@ -545,38 +649,27 @@ export function OfferForm({ productId }: { productId: string }) {
   const [state, action, pending] = useActionState(createOfferAction, initialState);
 
   return (
-    <form action={action} className="grid gap-4">
+    <form action={action} className="space-y-4">
       <input name="productId" type="hidden" value={productId} />
-      <div>
-        <label className="label text-stone-300" htmlFor={`offer-price-${productId}`}>
-          Offer price
-        </label>
-        <input
-          className="field mt-2"
-          id={`offer-price-${productId}`}
-          min={0.01}
-          name="offeredPrice"
-          placeholder="e.g. 42"
-          required
-          step="0.01"
-          type="number"
-        />
-      </div>
-      <div>
-        <label className="label text-stone-300" htmlFor={`offer-message-${productId}`}>
-          Message
-        </label>
-        <textarea
-          className="field mt-2 min-h-28"
-          id={`offer-message-${productId}`}
-          maxLength={600}
-          name="message"
-          placeholder="Need 30kg every week for restaurant delivery."
-        />
-      </div>
-      <button className="btn-primary mt-1" disabled={pending} type="submit">
-        <ButtonLabel idle="Offer price" loading="Sending..." pending={pending} />
-      </button>
+      <FormInput
+        id={`offer-price-${productId}`}
+        name="offeredPrice"
+        label="Offer Price (₹)"
+        type="number"
+        min={0.01}
+        step="0.01"
+        required
+        placeholder="e.g., 42"
+        icon={DollarSign}
+      />
+      <FormTextarea
+        id={`offer-message-${productId}`}
+        name="message"
+        label="Message"
+        placeholder="Need 30kg every week for restaurant delivery."
+        rows={3}
+      />
+      <PendingSubmitButton idle="Submit offer" loading="Submitting..." />
       <FormFeedback state={state} />
     </form>
   );
@@ -586,23 +679,16 @@ export function OfferMessageForm({ offerId }: { offerId: string }) {
   const [state, action, pending] = useActionState(addOfferMessageAction, initialState);
 
   return (
-    <form action={action} className="grid gap-3">
+    <form action={action} className="space-y-3">
       <input name="offerId" type="hidden" value={offerId} />
-      <div>
-        <label className="label" htmlFor={`offer-thread-${offerId}`}>
-          Chat update
-        </label>
-        <textarea
-          className="field mt-2 min-h-24"
-          id={`offer-thread-${offerId}`}
-          maxLength={1000}
-          name="text"
-          placeholder="Share delivery timing, quantity changes, or counter details."
-        />
-      </div>
-      <button className="btn-secondary justify-center" disabled={pending} type="submit">
-        <ButtonLabel idle="Send update" loading="Sending..." pending={pending} />
-      </button>
+      <FormTextarea
+        id={`offer-thread-${offerId}`}
+        name="text"
+        label="Message"
+        placeholder="Share delivery timing, quantity changes, or counter details."
+        rows={3}
+      />
+      <PendingSubmitButton idle="Send message" loading="Sending..." variant="secondary" />
       <FormFeedback state={state} />
     </form>
   );
@@ -616,38 +702,45 @@ export function FarmerOfferActions({
   defaultAddress: string;
 }) {
   return (
-    <div className="grid gap-3">
-      <form action={acceptOfferAction} className="grid gap-3">
+    <div className="space-y-3">
+      <form action={acceptOfferAction} className="space-y-3">
         <input name="offerId" type="hidden" value={offerId} />
-        <input
-          className="field"
-          defaultValue={defaultAddress}
+        <FormInput
+          id="address"
           name="address"
-          placeholder="Delivery address"
+          label="Delivery Address"
+          defaultValue={defaultAddress}
+          placeholder="Enter delivery address"
+          required
+          icon={MapPin}
         />
         <div className="grid gap-3 sm:grid-cols-2">
-          <select className="field" defaultValue="platform" name="deliveryType">
-            <option value="platform">Platform delivery</option>
-            <option value="self">Self delivery</option>
-          </select>
-          <select className="field" defaultValue="razorpay" name="paymentProvider">
-            <option value="razorpay">Razorpay</option>
-            <option value="stripe">Stripe</option>
-          </select>
+          <FormSelect
+            id="deliveryType"
+            name="deliveryType"
+            label="Delivery Type"
+            options={[
+              { value: "platform", label: "Platform delivery" },
+              { value: "self", label: "Self delivery" },
+            ]}
+            defaultValue="platform"
+          />
+          <FormSelect
+            id="paymentProvider"
+            name="paymentProvider"
+            label="Payment Provider"
+            options={[
+              { value: "razorpay", label: "Razorpay" },
+              { value: "stripe", label: "Stripe" },
+            ]}
+            defaultValue="razorpay"
+          />
         </div>
-        <PendingSubmitButton
-          className="btn-primary"
-          idle="Accept offer"
-          loading="Accepting..."
-        />
+        <PendingSubmitButton idle="Accept & create order" loading="Processing..." />
       </form>
       <form action={rejectOfferAction}>
         <input name="offerId" type="hidden" value={offerId} />
-        <PendingSubmitButton
-          className="btn-secondary w-full justify-center"
-          idle="Reject offer"
-          loading="Rejecting..."
-        />
+        <PendingSubmitButton idle="Reject offer" loading="Rejecting..." variant="danger" />
       </form>
     </div>
   );
@@ -657,11 +750,7 @@ export function AdminApprovalForm({ userId }: { userId: string }) {
   return (
     <form action={approveFarmerAction}>
       <input name="userId" type="hidden" value={userId} />
-      <PendingSubmitButton
-        className="btn-primary"
-        idle="Approve farmer"
-        loading="Approving..."
-      />
+      <PendingSubmitButton idle="Approve farmer" loading="Approving..." />
     </form>
   );
 }
@@ -683,55 +772,51 @@ export function OrderReviewForm({
   const [state, action, pending] = useActionState(submitReviewAction, initialState);
 
   return (
-    <form action={action} className="grid gap-3">
+    <form action={action} className="space-y-4">
       <input name="orderId" type="hidden" value={orderId} />
-      <div className="flex items-center justify-between gap-4">
-        <p className="text-sm font-semibold text-stone-950">
-          Rate {targetName} ({targetRole})
-        </p>
-        {existingReview ? (
-          <span className="text-xs uppercase tracking-[0.18em] text-stone-500">
-            Editing saved review
+      
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Star className="h-5 w-5 text-amber-400" />
+          <p className="text-sm font-semibold text-gray-900">
+            Rate {targetName} ({targetRole})
+          </p>
+        </div>
+        {existingReview && (
+          <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+            Editing review
           </span>
-        ) : null}
+        )}
       </div>
-      <div>
-        <label className="label" htmlFor={`review-rating-${orderId}`}>
-          Rating
-        </label>
-        <select
-          className="field mt-2"
-          defaultValue={String(existingReview?.rating ?? 5)}
-          id={`review-rating-${orderId}`}
-          name="rating"
-        >
-          <option value="5">5 - Excellent</option>
-          <option value="4">4 - Good</option>
-          <option value="3">3 - Average</option>
-          <option value="2">2 - Poor</option>
-          <option value="1">1 - Very poor</option>
-        </select>
-      </div>
-      <div>
-        <label className="label" htmlFor={`review-feedback-${orderId}`}>
-          Feedback
-        </label>
-        <textarea
-          className="field mt-2 min-h-24"
-          defaultValue={existingReview?.feedback ?? ""}
-          id={`review-feedback-${orderId}`}
-          maxLength={500}
-          name="feedback"
-          placeholder="Share delivery quality, communication, and overall experience."
-        />
-      </div>
-      <button className="btn-secondary justify-center" disabled={pending} type="submit">
-        <ButtonLabel
-          idle={existingReview ? "Update feedback" : "Submit feedback"}
-          loading="Saving..."
-          pending={pending}
-        />
-      </button>
+      
+      <FormSelect
+        id={`review-rating-${orderId}`}
+        name="rating"
+        label="Rating"
+        options={[
+          { value: "5", label: "5 - Excellent" },
+          { value: "4", label: "4 - Good" },
+          { value: "3", label: "3 - Average" },
+          { value: "2", label: "2 - Poor" },
+          { value: "1", label: "1 - Very poor" },
+        ]}
+        defaultValue={String(existingReview?.rating ?? 5)}
+      />
+      
+      <FormTextarea
+        id={`review-feedback-${orderId}`}
+        name="feedback"
+        label="Feedback"
+        defaultValue={existingReview?.feedback ?? ""}
+        placeholder="Share delivery quality, communication, and overall experience."
+        rows={3}
+      />
+      
+      <PendingSubmitButton 
+        idle={existingReview ? "Update review" : "Submit review"} 
+        loading="Saving..." 
+        variant="secondary"
+      />
       <FormFeedback state={state} />
     </form>
   );
