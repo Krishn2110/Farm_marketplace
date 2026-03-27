@@ -1,0 +1,74 @@
+crop,location,date,price,arrival
+Bajra(Pearl Millet/Cumbu),India,2026-03-25,2400.41,1681.02
+Bajra(Pearl Millet/Cumbu),India,2026-03-24,2417.13,1335.59
+Bajra(Pearl Millet/Cumbu),India,2026-03-23,2185.95,1048.3
+Barley(Jau),India,2026-03-25,1876.95,4752.65
+Barley(Jau),India,2026-03-24,1986.74,3233.67
+Barley(Jau),India,2026-03-23,1859.54,3576.89
+Jowar(Sorghum),India,2026-03-25,4303.34,282.93
+Jowar(Sorghum),India,2026-03-24,4182.98,617.46
+Jowar(Sorghum),India,2026-03-23,4685.84,358.4
+Maize,India,2026-03-25,1690.88,19732.91
+Maize,India,2026-03-24,1713.27,19077.82
+Maize,India,2026-03-23,1771.93,23125.22
+Paddy(Common),India,2026-03-25,2804.66,25834.06
+Paddy(Common),India,2026-03-24,2845.51,20329.07
+Paddy(Common),India,2026-03-23,3038.81,19558.79
+Ragi(Finger Millet),India,2026-03-25,3459.6,664.6
+Ragi(Finger Millet),India,2026-03-24,3196.24,275.1
+Ragi(Finger Millet),India,2026-03-23,3169.27,502.6
+Wheat,India,2026-03-25,2365.36,112105.91
+Wheat,India,2026-03-24,2364.07,94273.66
+Wheat,India,2026-03-23,2336.02,101119.96
+Cotton,India,2026-03-25,7904.64,3143.43
+Cotton,India,2026-03-24,7562.4,3413.33
+Cotton,India,2026-03-23,7717.31,5891.81
+Copra,India,2026-03-25,21157.12,118.7
+Copra,India,2026-03-24,23045.48,117.9
+Copra,India,2026-03-23,19112.89,71.75
+Groundnut,India,2026-03-25,7325.89,4501.77
+Groundnut,India,2026-03-24,6989.2,954.33
+Groundnut,India,2026-03-23,7406.4,5127.83
+Mustard,India,2026-03-25,6384.15,30985.89
+Mustard,India,2026-03-24,6396.71,23790.11
+Mustard,India,2026-03-23,6474.12,29813.44
+Niger Seed(Ramtil),India,2026-03-24,9100.0,2.0
+Safflower,India,2026-03-25,5015.9,35.5
+Safflower,India,2026-03-24,4913.66,8.7
+Safflower,India,2026-03-23,4878.12,59.1
+"Sesamum(Sesame,Gingelly,Til)",India,2026-03-25,10092.62,93.86
+"Sesamum(Sesame,Gingelly,Til)",India,2026-03-24,9911.43,51.22
+"Sesamum(Sesame,Gingelly,Til)",India,2026-03-23,8016.91,113.39
+Soyabean,India,2026-03-25,5363.19,10496.18
+Soyabean,India,2026-03-24,5362.31,12037.54
+Soyabean,India,2026-03-23,5375.39,11756.12
+Sunflower,India,2026-03-25,6895.6,1436.1
+Sunflower,India,2026-03-24,7117.24,829.0
+Sunflower,India,2026-03-23,7240.4,1396.5
+Sunflower Seed,India,2026-03-23,5951.0,53.0
+Sugarcane,India,2026-03-25,300.0,12.0
+Sugarcane,India,2026-03-23,328.04,107.0
+Arhar(Tur/Red Gram)(Whole),India,2026-03-25,7692.12,1684.01
+Arhar(Tur/Red Gram)(Whole),India,2026-03-24,7384.83,1648.22
+Arhar(Tur/Red Gram)(Whole),India,2026-03-23,7325.24,2926.66
+Bengal Gram(Gram)(Whole),India,2026-03-25,5277.23,14551.94
+Bengal Gram(Gram)(Whole),India,2026-03-24,5262.58,11485.73
+Bengal Gram(Gram)(Whole),India,2026-03-23,5242.92,13523.3
+Black Gram(Urd Beans)(Whole),India,2026-03-25,8050.67,349.92
+Black Gram(Urd Beans)(Whole),India,2026-03-24,8302.73,376.46
+Black Gram(Urd Beans)(Whole),India,2026-03-23,8232.83,407.08
+Green Gram(Moong)(Whole),India,2026-03-25,7793.97,817.79
+Green Gram(Moong)(Whole),India,2026-03-24,8017.64,637.49
+Green Gram(Moong)(Whole),India,2026-03-23,7318.4,480.77
+Lentil(Masur)(Whole),India,2026-03-25,6639.07,2856.96
+Lentil(Masur)(Whole),India,2026-03-24,6847.75,2237.34
+Lentil(Masur)(Whole),India,2026-03-23,6893.64,2670.97
+Onion,India,2026-03-25,1117.97,15507.64
+Onion,India,2026-03-24,1128.16,16691.43
+Onion,India,2026-03-23,1119.87,18866.23
+Potato,India,2026-03-25,688.68,12448.86
+Potato,India,2026-03-24,773.56,15197.17
+Potato,India,2026-03-23,717.53,13785.04
+Tomato,India,2026-03-25,1288.85,3320.35
+Tomato,India,2026-03-24,1337.98,3630.13
+Tomato,India,2026-03-23,1257.81,3641.65

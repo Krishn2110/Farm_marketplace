@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+
 import { getOptionalSession } from "@/lib/auth";
 import { getFeaturedProducts, getMarketplaceSnapshot } from "@/lib/market";
 import { 
@@ -333,87 +334,55 @@ export default async function Home() {
           </Link>
         </div>
 
-        <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
-          {featuredProducts.map((product, index) => {
-            const productImages = [
-              "https://images.unsplash.com/photo-1542838132-92c53300491e",
-              "https://images.unsplash.com/photo-1566386473540-6f97f42d8c7f",
-              "https://images.unsplash.com/photo-1597362876212-7c0b9775c32b"
-            ];
-            
-            return (
-              <article
-                key={product.id}
-                className="group relative rounded-2xl bg-white shadow-xl transition-all hover:shadow-2xl hover:-translate-y-2 overflow-hidden"
-              >
-                {/* Product Image */}
-                <div className="relative h-64 w-full overflow-hidden bg-gray-100">
-                  <Image
-                    src={`${productImages[index % productImages.length]}?w=800&h=600&fit=crop`}
-                    alt={product.title}
-                    fill
-                    className="object-cover transition-transform duration-700 group-hover:scale-110"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
-                  
-                  {/* Freshness Badge */}
-                  {product.freshnessNote && (
-                    <div className="absolute top-4 right-4 flex items-center gap-1 rounded-full bg-white/95 backdrop-blur-sm px-3 py-1.5 shadow-lg">
-                      <Sparkles className="h-3 w-3 text-amber-500" />
-                      <span className="text-xs font-semibold text-amber-700">{product.freshnessNote}</span>
-                    </div>
-                  )}
-                  
-                  {/* Category Badge */}
-                  <div className="absolute bottom-4 left-4">
-                    <span className="inline-flex rounded-full bg-white/95 backdrop-blur-sm px-3 py-1 text-xs font-semibold text-emerald-700">
-                      {product.category}
-                    </span>
-                  </div>
-                </div>
+        <div className="grid gap-5 lg:grid-cols-3">
+          {featuredProducts.map((product) => (
+  <article key={product.id} className="panel panel-product">
+    <div className="flex items-start justify-between gap-4">
+      <div>
+        <p className="eyebrow text-stone-500">{product.category}</p>
+        <h3 className="mt-2 text-2xl font-semibold text-stone-950">
+          {product.title}
+        </h3>
 
-                <div className="p-6">
-                  {/* Title */}
-                  <h3 className="text-xl font-bold text-gray-900 mb-3 group-hover:text-emerald-600 transition-colors">
-                    {product.title}
-                  </h3>
+        {/* Details */}
+        <div className="space-y-2.5 text-sm text-gray-600">
+          <div className="flex items-center gap-2">
+            <MapPin className="h-4 w-4 text-emerald-600 flex-shrink-0" />
+            <span>{product.location}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Package className="h-4 w-4 text-emerald-600 flex-shrink-0" />
+            <span>{product.quantity} {product.unit} available</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Calendar className="h-4 w-4 text-emerald-600 flex-shrink-0" />
+            <span>Harvested on {product.harvestDate}</span>
+          </div>
+        </div>
 
-                  {/* Details */}
-                  <div className="space-y-2.5 text-sm text-gray-600">
-                    <div className="flex items-center gap-2">
-                      <MapPin className="h-4 w-4 text-emerald-600 flex-shrink-0" />
-                      <span>{product.location}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Package className="h-4 w-4 text-emerald-600 flex-shrink-0" />
-                      <span>{product.quantity} {product.unit} available</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4 text-emerald-600 flex-shrink-0" />
-                      <span>Harvested on {product.harvestDate}</span>
-                    </div>
-                  </div>
+        {/* Price and Action */}
+        <div className="mt-6 flex items-center justify-between pt-4 border-t border-gray-100">
+          <div>
+            <p className="text-2xl font-bold text-gray-900">
+              ₹{product.price}
+              <span className="text-sm font-normal text-gray-500">
+                /{product.unit}
+              </span>
+            </p>
+          </div>
 
-                  {/* Price and Action */}
-                  <div className="mt-6 flex items-center justify-between pt-4 border-t border-gray-100">
-                    <div>
-                      <p className="text-2xl font-bold text-gray-900">
-                        ₹{product.price}
-                        <span className="text-sm font-normal text-gray-500">/{product.unit}</span>
-                      </p>
-                    </div>
-                    <Link
-                      className="inline-flex items-center gap-2 rounded-lg bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 transition-all hover:bg-emerald-600 hover:text-white hover:shadow-md"
-                      href={`/listings/${product.id}`}
-                    >
-                      View details
-                      <ArrowRight className="h-4 w-4" />
-                    </Link>
-                  </div>
-                </div>
-              </article>
-            );
-          })}
+          <Link
+            className="inline-flex items-center gap-2 rounded-lg bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 transition-all hover:bg-emerald-600 hover:text-white hover:shadow-md"
+            href={`/listings/${product.id}`}
+          >
+            View details
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
+      </div> {/* ✅ THIS WAS MISSING */}
+    </div>
+  </article>
+))}
         </div>
       </section>
 

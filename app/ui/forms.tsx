@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState } from "react";
 
 import {
@@ -11,6 +12,8 @@ import {
   loginAction,
   quickDemoLoginAction,
   rejectOfferAction,
+  requestPasswordResetAction,
+  resetPasswordAction,
   signupAction,
   updateProfileAction,
   type FormState,
@@ -46,21 +49,108 @@ export function LoginForm() {
         <label className="label" htmlFor="login-email">
           Email
         </label>
-        <input className="field mt-2" id="login-email" name="email" type="email" />
+        <input
+          autoComplete="email"
+          className="field mt-2"
+          id="login-email"
+          name="email"
+          required
+          type="email"
+        />
       </div>
       <div>
         <label className="label" htmlFor="login-password">
           Password
         </label>
         <input
+          autoComplete="current-password"
           className="field mt-2"
           id="login-password"
+          minLength={6}
           name="password"
+          required
           type="password"
         />
       </div>
       <button className="btn-primary mt-2" disabled={pending} type="submit">
         {pending ? "Signing in..." : "Login"}
+      </button>
+      <Link className="text-sm font-medium text-emerald-800" href="/forgot-password">
+        Forgot password?
+      </Link>
+      <FormFeedback state={state} />
+    </form>
+  );
+}
+
+export function ForgotPasswordForm() {
+  const [state, action, pending] = useActionState(
+    requestPasswordResetAction,
+    initialState,
+  );
+
+  return (
+    <form action={action} className="grid gap-4">
+      <div>
+        <label className="label" htmlFor="forgot-email">
+          Account email
+        </label>
+        <input
+          autoComplete="email"
+          className="field mt-2"
+          id="forgot-email"
+          name="email"
+          required
+          type="email"
+        />
+      </div>
+      <button className="btn-primary mt-2" disabled={pending} type="submit">
+        {pending ? "Generating link..." : "Generate reset link"}
+      </button>
+      <p className="text-xs leading-6 text-stone-500">
+        Development mode: generated token is logged on the server console.
+      </p>
+      <FormFeedback state={state} />
+    </form>
+  );
+}
+
+export function ResetPasswordForm({ token }: { token: string }) {
+  const [state, action, pending] = useActionState(resetPasswordAction, initialState);
+
+  return (
+    <form action={action} className="grid gap-4">
+      <input name="token" type="hidden" value={token} />
+      <div>
+        <label className="label" htmlFor="reset-password">
+          New password
+        </label>
+        <input
+          autoComplete="new-password"
+          className="field mt-2"
+          id="reset-password"
+          minLength={6}
+          name="password"
+          required
+          type="password"
+        />
+      </div>
+      <div>
+        <label className="label" htmlFor="reset-confirm-password">
+          Confirm password
+        </label>
+        <input
+          autoComplete="new-password"
+          className="field mt-2"
+          id="reset-confirm-password"
+          minLength={6}
+          name="confirmPassword"
+          required
+          type="password"
+        />
+      </div>
+      <button className="btn-primary mt-2" disabled={pending} type="submit">
+        {pending ? "Updating..." : "Update password"}
       </button>
       <FormFeedback state={state} />
     </form>
@@ -76,22 +166,38 @@ export function SignupForm() {
         <label className="label" htmlFor="signup-name">
           Full name
         </label>
-        <input className="field mt-2" id="signup-name" name="name" />
+        <input
+          autoComplete="name"
+          className="field mt-2"
+          id="signup-name"
+          name="name"
+          required
+        />
       </div>
       <div>
         <label className="label" htmlFor="signup-email">
           Email
         </label>
-        <input className="field mt-2" id="signup-email" name="email" type="email" />
+        <input
+          autoComplete="email"
+          className="field mt-2"
+          id="signup-email"
+          name="email"
+          required
+          type="email"
+        />
       </div>
       <div>
         <label className="label" htmlFor="signup-password">
           Password
         </label>
         <input
+          autoComplete="new-password"
           className="field mt-2"
           id="signup-password"
+          minLength={6}
           name="password"
+          required
           type="password"
         />
       </div>
@@ -100,7 +206,13 @@ export function SignupForm() {
           <label className="label" htmlFor="signup-role">
             Role
           </label>
-          <select className="field mt-2" defaultValue="farmer" id="signup-role" name="role">
+          <select
+            className="field mt-2"
+            defaultValue="farmer"
+            id="signup-role"
+            name="role"
+            required
+          >
             <option value="farmer">Farmer</option>
             <option value="buyer">Buyer</option>
             <option value="admin">Admin</option>
@@ -110,7 +222,13 @@ export function SignupForm() {
           <label className="label" htmlFor="signup-location">
             Location
           </label>
-          <input className="field mt-2" id="signup-location" name="location" />
+          <input
+            autoComplete="address-level2"
+            className="field mt-2"
+            id="signup-location"
+            name="location"
+            required
+          />
         </div>
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
@@ -229,13 +347,13 @@ export function FarmerListingForm({ location }: { location: string }) {
   const [state, action, pending] = useActionState(createListingAction, initialState);
 
   return (
-    <form action={action} className="grid gap-4">
+    <form action={action} className="grid gap-4" encType="multipart/form-data">
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <label className="label" htmlFor="listing-title">
             Product name
           </label>
-          <input className="field mt-2" id="listing-title" name="title" />
+          <input className="field mt-2" id="listing-title" name="title" required />
         </div>
         <div>
           <label className="label" htmlFor="listing-category">
@@ -253,13 +371,29 @@ export function FarmerListingForm({ location }: { location: string }) {
           <label className="label" htmlFor="listing-price">
             Price
           </label>
-          <input className="field mt-2" id="listing-price" name="price" type="number" />
+          <input
+            className="field mt-2"
+            id="listing-price"
+            min={0.01}
+            name="price"
+            required
+            step="0.01"
+            type="number"
+          />
         </div>
         <div>
           <label className="label" htmlFor="listing-quantity">
             Quantity
           </label>
-          <input className="field mt-2" id="listing-quantity" name="quantity" type="number" />
+          <input
+            className="field mt-2"
+            id="listing-quantity"
+            min={0.01}
+            name="quantity"
+            required
+            step="0.01"
+            type="number"
+          />
         </div>
         <div>
           <label className="label" htmlFor="listing-unit">
@@ -277,6 +411,7 @@ export function FarmerListingForm({ location }: { location: string }) {
             className="field mt-2"
             id="listing-harvest"
             name="harvestDate"
+            required
             type="date"
           />
         </div>
@@ -289,6 +424,7 @@ export function FarmerListingForm({ location }: { location: string }) {
             defaultValue={location}
             id="listing-location"
             name="location"
+            required
           />
         </div>
       </div>
@@ -301,7 +437,24 @@ export function FarmerListingForm({ location }: { location: string }) {
           defaultValue="Freshly harvested today"
           id="listing-freshness"
           name="freshnessNote"
+          required
         />
+      </div>
+      <div>
+        <label className="label" htmlFor="listing-images">
+          Product images
+        </label>
+        <input
+          accept="image/jpeg,image/png,image/webp"
+          className="field mt-2"
+          id="listing-images"
+          multiple
+          name="images"
+          type="file"
+        />
+        <p className="mt-2 text-xs text-stone-500">
+          Optional. Upload up to 4 images (JPG, PNG, WEBP), max 5MB each.
+        </p>
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <div>

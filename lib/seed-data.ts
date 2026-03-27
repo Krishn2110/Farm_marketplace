@@ -157,4 +157,5 @@ export const seedData: StoreData = {
       createdAt: "2026-03-25 17:30",
     },
   ],
+  passwordResets: [],
 };

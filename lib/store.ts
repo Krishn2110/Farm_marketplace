@@ -1,14 +1,14 @@
 import "server-only";
 
 import { createHash, randomUUID } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import path from "node:path";
 
+import { getDatabase } from "@/lib/mongodb";
 import { seedData } from "@/lib/seed-data";
 import type {
   DeliveryType,
   OfferRecord,
   OrderRecord,
+  PasswordResetRecord,
   PaymentProvider,
   ProductRecord,
   Role,
@@ -16,31 +16,70 @@ import type {
   UserRecord,
 } from "@/lib/types";
 
-const dataDirectory = path.join(process.cwd(), "data");
-const dataFile = path.join(dataDirectory, "store.json");
+const collectionName = "store";
+const documentKey = "main";
+
+type StoreDocument = StoreData & {
+  key: string;
+};
 
 function hashPassword(password: string) {
   return createHash("sha256").update(password).digest("hex");
 }
 
-async function ensureStoreFile() {
-  await mkdir(dataDirectory, { recursive: true });
-
-  try {
-    await readFile(dataFile, "utf8");
-  } catch {
-    await writeFile(dataFile, JSON.stringify(seedData, null, 2), "utf8");
-  }
+function hashResetToken(token: string) {
+  return createHash("sha256").update(token).digest("hex");
 }
 
-async function readStore(): Promise<StoreData> {
-  await ensureStoreFile();
-  const source = await readFile(dataFile, "utf8");
-  return JSON.parse(source) as StoreData;
+async function getStoreCollection() {
+  const database = await getDatabase();
+  return database.collection<StoreDocument>(collectionName);
+}
+
+async function ensureStoreDocument() {
+  const collection = await getStoreCollection();
+  await collection.updateOne(
+    { key: documentKey },
+    {
+      $setOnInsert: {
+        key: documentKey,
+        ...seedData,
+      },
+    },
+    { upsert: true },
+  );
 }
 
 async function writeStore(store: StoreData) {
-  await writeFile(dataFile, JSON.stringify(store, null, 2), "utf8");
+  const collection = await getStoreCollection();
+  await collection.updateOne(
+    { key: documentKey },
+    {
+      $set: {
+        key: documentKey,
+        ...store,
+      },
+    },
+    { upsert: true },
+  );
+}
+
+async function readStore(): Promise<StoreData> {
+  await ensureStoreDocument();
+  const collection = await getStoreCollection();
+  const document = await collection.findOne({ key: documentKey });
+
+  if (!document) {
+    return structuredClone(seedData);
+  }
+
+  return {
+    users: document.users ?? [],
+    products: document.products ?? [],
+    offers: document.offers ?? [],
+    orders: document.orders ?? [],
+    passwordResets: document.passwordResets ?? [],
+  };
 }
 
 export async function getStore() {
@@ -132,18 +171,43 @@ export async function createListing(input: {
   deliveryOptions: DeliveryType[];
 }) {
   const store = await readStore();
+  const farmer = store.users.find((entry) => entry.id === input.farmerId);
+  const hasValidHarvestDate = /^\d{4}-\d{2}-\d{2}$/.test(input.harvestDate);
+
+  if (!farmer || farmer.role !== "farmer") {
+    throw new Error("FARMER_NOT_FOUND");
+  }
+
+  if (!farmer.approved) {
+    throw new Error("FARMER_NOT_APPROVED");
+  }
+
+  if (
+    !input.title.trim() ||
+    !input.category.trim() ||
+    !input.location.trim() ||
+    !input.freshnessNote.trim() ||
+    !hasValidHarvestDate ||
+    !Number.isFinite(input.price) ||
+    !Number.isFinite(input.quantity) ||
+    input.price <= 0 ||
+    input.quantity <= 0
+  ) {
+    throw new Error("INVALID_LISTING_INPUT");
+  }
+
   const listing: ProductRecord = {
     id: randomUUID(),
     farmerId: input.farmerId,
-    title: input.title,
-    category: input.category,
+    title: input.title.trim(),
+    category: input.category.trim(),
     price: input.price,
     quantity: input.quantity,
-    unit: input.unit,
+    unit: input.unit.trim() || "kg",
     harvestDate: input.harvestDate,
     images: input.images,
-    location: input.location,
-    freshnessNote: input.freshnessNote,
+    location: input.location.trim(),
+    freshnessNote: input.freshnessNote.trim(),
     organic: input.organic,
     deliveryOptions: input.deliveryOptions.length
       ? input.deliveryOptions
@@ -335,4 +399,68 @@ export async function approveFarmer(userId: string) {
   user.approved = true;
   await writeStore(store);
   return user;
+}
+
+export async function createPasswordResetToken(email: string) {
+  const store = await readStore();
+  const user = store.users.find((entry) => entry.email === email);
+
+  if (!user) {
+    return null;
+  }
+
+  const now = Date.now();
+  const token = randomUUID();
+  const reset: PasswordResetRecord = {
+    id: randomUUID(),
+    userId: user.id,
+    tokenHash: hashResetToken(token),
+    createdAt: new Date(now).toISOString(),
+    expiresAt: new Date(now + 30 * 60 * 1000).toISOString(),
+  };
+
+  store.passwordResets = store.passwordResets.filter((entry) => {
+    return entry.userId !== user.id && new Date(entry.expiresAt).getTime() > now;
+  });
+  store.passwordResets.unshift(reset);
+  await writeStore(store);
+  return {
+    token,
+    userId: user.id,
+  };
+}
+
+export async function resetPasswordByToken(token: string, nextPassword: string) {
+  const store = await readStore();
+  const now = Date.now();
+  const hashedToken = hashResetToken(token);
+  const resetRequest = store.passwordResets.find((entry) => {
+    return (
+      entry.tokenHash === hashedToken && new Date(entry.expiresAt).getTime() > now
+    );
+  });
+
+  if (!resetRequest) {
+    store.passwordResets = store.passwordResets.filter(
+      (entry) => new Date(entry.expiresAt).getTime() > now,
+    );
+    await writeStore(store);
+    return false;
+  }
+
+  const user = store.users.find((entry) => entry.id === resetRequest.userId);
+  if (!user) {
+    store.passwordResets = store.passwordResets.filter(
+      (entry) => entry.id !== resetRequest.id,
+    );
+    await writeStore(store);
+    return false;
+  }
+
+  user.passwordHash = hashPassword(nextPassword);
+  store.passwordResets = store.passwordResets.filter(
+    (entry) => entry.userId !== user.id,
+  );
+  await writeStore(store);
+  return true;
 }
