@@ -1,5 +1,4 @@
 import "server-only";
-
 import { MongoClient, ServerApiVersion } from "mongodb";
 
 const uri = process.env.MONGODB_URI;
@@ -33,9 +32,10 @@ export async function getDatabase() {
   const connectedClient = await clientPromise;
   const db = connectedClient.db(databaseName);
 
-  await db.command({ ping: 1 });   // 👈 YE LINE ADD KARO
-
-  console.log("✅ MongoDB Connected Successfully");
+  // ✅ Only log once (optional)
+  if (process.env.NODE_ENV === "development") {
+    console.log("✅ MongoDB Connected");
+  }
 
   return db;
 }
