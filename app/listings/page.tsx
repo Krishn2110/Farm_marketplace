@@ -1,5 +1,5 @@
-import Link from "next/link";
 import Image from "next/image";
+import Link from "next/link";
 import { 
   Search, 
   Filter, 
@@ -23,9 +23,10 @@ import { OfferForm } from "@/app/ui/forms";
 import { getOptionalSession } from "@/lib/auth";
 import {
   getCategories,
-  getListingsWithContext,
+  getListingsMarketPulse,
   getLocationOptions,
 } from "@/lib/market";
+import { LoadingLink } from "@/app/ui/navigation-progress";
 
 type SearchParams = Promise<{
   category?: string | string[];
@@ -42,19 +43,19 @@ export default async function ListingsPage({
 }: {
   searchParams: SearchParams;
 }) {
-  const [params, session, categories, locations, listings] = await Promise.all([
+  const [params, session, categories, locations, marketPulse] = await Promise.all([
     searchParams,
     getOptionalSession(),
     getCategories(),
     getLocationOptions(),
-    getListingsWithContext(),
+    getListingsMarketPulse(),
   ]);
 
   const category = readFilterValue(params.category);
   const location = readFilterValue(params.location);
   const maxPrice = Number(readFilterValue(params.maxPrice) || "0");
 
-  const filteredListings = listings.filter((listing) => {
+  const filteredListings = marketPulse.listings.filter((listing) => {
     const matchesCategory = category ? listing.category === category : true;
     const matchesLocation = location ? listing.location === location : true;
     const matchesPrice = maxPrice > 0 ? listing.price <= maxPrice : true;

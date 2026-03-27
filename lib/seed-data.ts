@@ -139,6 +139,7 @@ export const seedData: StoreData = {
       updatedAt: "2026-03-26 09:28",
     },
   ],
+  reviews: [],
   orders: [
     {
       id: "order-1",
@@ -146,6 +147,8 @@ export const seedData: StoreData = {
       productId: "product-2",
       buyerId: "user-buyer-1",
       farmerId: "user-farmer-1",
+      quantity: 20,
+      unit: "kg",
       total: 960,
       status: "in-transit",
       deliveryType: "platform",

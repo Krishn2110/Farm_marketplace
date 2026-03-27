@@ -14,6 +14,7 @@ import {
   MessageSquare
 } from "lucide-react";
 import { DemoLoginButtons, LoginForm } from "@/app/ui/forms";
+import { LoadingLink } from "@/app/ui/navigation-progress";
 
 export default function LoginPage() {
   const features = [

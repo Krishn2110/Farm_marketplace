@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useActionState } from "react";
+import { useFormStatus } from "react-dom";
 
 import {
   acceptOfferAction,
@@ -15,9 +15,12 @@ import {
   requestPasswordResetAction,
   resetPasswordAction,
   signupAction,
+  submitReviewAction,
   updateProfileAction,
   type FormState,
 } from "@/app/actions";
+import { LoadingLink } from "@/app/ui/navigation-progress";
+import { Spinner } from "@/app/ui/spinner";
 import type { UserRecord } from "@/lib/types";
 
 const initialState: FormState = {};
@@ -37,6 +40,41 @@ function FormFeedback({ state }: { state: FormState }) {
     >
       {state.error ?? state.success}
     </p>
+  );
+}
+
+function ButtonLabel({
+  pending,
+  idle,
+  loading,
+}: {
+  pending: boolean;
+  idle: string;
+  loading: string;
+}) {
+  return (
+    <span className="inline-flex items-center gap-2">
+      {pending ? <Spinner className="text-current" label={loading} size="sm" /> : null}
+      <span>{pending ? loading : idle}</span>
+    </span>
+  );
+}
+
+function PendingSubmitButton({
+  className,
+  idle,
+  loading,
+}: {
+  className: string;
+  idle: string;
+  loading: string;
+}) {
+  const { pending } = useFormStatus();
+
+  return (
+    <button className={className} disabled={pending} type="submit">
+      <ButtonLabel idle={idle} loading={loading} pending={pending} />
+    </button>
   );
 }
 
@@ -73,11 +111,11 @@ export function LoginForm() {
         />
       </div>
       <button className="btn-primary mt-2" disabled={pending} type="submit">
-        {pending ? "Signing in..." : "Login"}
+        <ButtonLabel idle="Login" loading="Signing in..." pending={pending} />
       </button>
-      <Link className="text-sm font-medium text-emerald-800" href="/forgot-password">
+      <LoadingLink className="text-sm font-medium text-emerald-800" href="/forgot-password">
         Forgot password?
-      </Link>
+      </LoadingLink>
       <FormFeedback state={state} />
     </form>
   );
@@ -105,7 +143,11 @@ export function ForgotPasswordForm() {
         />
       </div>
       <button className="btn-primary mt-2" disabled={pending} type="submit">
-        {pending ? "Generating link..." : "Generate reset link"}
+        <ButtonLabel
+          idle="Generate reset link"
+          loading="Generating link..."
+          pending={pending}
+        />
       </button>
       <p className="text-xs leading-6 text-stone-500">
         Development mode: generated token is logged on the server console.
@@ -150,7 +192,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
         />
       </div>
       <button className="btn-primary mt-2" disabled={pending} type="submit">
-        {pending ? "Updating..." : "Update password"}
+        <ButtonLabel idle="Update password" loading="Updating..." pending={pending} />
       </button>
       <FormFeedback state={state} />
     </form>
@@ -258,7 +300,11 @@ export function SignupForm() {
         />
       </div>
       <button className="btn-primary mt-2" disabled={pending} type="submit">
-        {pending ? "Creating account..." : "Create account"}
+        <ButtonLabel
+          idle="Create account"
+          loading="Creating account..."
+          pending={pending}
+        />
       </button>
       <FormFeedback state={state} />
     </form>
@@ -275,9 +321,11 @@ export function DemoLoginButtons() {
       ].map((item) => (
         <form action={quickDemoLoginAction} key={item.value}>
           <input name="role" type="hidden" value={item.value} />
-          <button className="btn-secondary" type="submit">
-            {item.label}
-          </button>
+          <PendingSubmitButton
+            className="btn-secondary"
+            idle={item.label}
+            loading="Opening demo..."
+          />
         </form>
       ))}
     </div>
@@ -336,7 +384,7 @@ export function ProfileForm({ user }: { user: UserRecord }) {
         />
       </div>
       <button className="btn-primary mt-2" disabled={pending} type="submit">
-        {pending ? "Saving..." : "Save profile"}
+        <ButtonLabel idle="Save profile" loading="Saving..." pending={pending} />
       </button>
       <FormFeedback state={state} />
     </form>
@@ -359,7 +407,12 @@ export function FarmerListingForm({ location }: { location: string }) {
           <label className="label" htmlFor="listing-category">
             Category
           </label>
-          <select className="field mt-2" defaultValue="Vegetables" id="listing-category" name="category">
+          <select
+            className="field mt-2"
+            defaultValue="Vegetables"
+            id="listing-category"
+            name="category"
+          >
             <option value="Vegetables">Vegetables</option>
             <option value="Fruits">Fruits</option>
             <option value="Grains">Grains</option>
@@ -481,7 +534,7 @@ export function FarmerListingForm({ location }: { location: string }) {
         </div>
       </div>
       <button className="btn-primary mt-2" disabled={pending} type="submit">
-        {pending ? "Publishing..." : "Publish listing"}
+        <ButtonLabel idle="Publish listing" loading="Publishing..." pending={pending} />
       </button>
       <FormFeedback state={state} />
     </form>
@@ -501,8 +554,11 @@ export function OfferForm({ productId }: { productId: string }) {
         <input
           className="field mt-2"
           id={`offer-price-${productId}`}
+          min={0.01}
           name="offeredPrice"
           placeholder="e.g. 42"
+          required
+          step="0.01"
           type="number"
         />
       </div>
@@ -513,12 +569,13 @@ export function OfferForm({ productId }: { productId: string }) {
         <textarea
           className="field mt-2 min-h-28"
           id={`offer-message-${productId}`}
+          maxLength={600}
           name="message"
           placeholder="Need 30kg every week for restaurant delivery."
         />
       </div>
       <button className="btn-primary mt-1" disabled={pending} type="submit">
-        {pending ? "Sending..." : "Offer price"}
+        <ButtonLabel idle="Offer price" loading="Sending..." pending={pending} />
       </button>
       <FormFeedback state={state} />
     </form>
@@ -538,12 +595,13 @@ export function OfferMessageForm({ offerId }: { offerId: string }) {
         <textarea
           className="field mt-2 min-h-24"
           id={`offer-thread-${offerId}`}
+          maxLength={1000}
           name="text"
           placeholder="Share delivery timing, quantity changes, or counter details."
         />
       </div>
       <button className="btn-secondary justify-center" disabled={pending} type="submit">
-        {pending ? "Sending..." : "Send update"}
+        <ButtonLabel idle="Send update" loading="Sending..." pending={pending} />
       </button>
       <FormFeedback state={state} />
     </form>
@@ -577,15 +635,19 @@ export function FarmerOfferActions({
             <option value="stripe">Stripe</option>
           </select>
         </div>
-        <button className="btn-primary" type="submit">
-          Accept offer
-        </button>
+        <PendingSubmitButton
+          className="btn-primary"
+          idle="Accept offer"
+          loading="Accepting..."
+        />
       </form>
       <form action={rejectOfferAction}>
         <input name="offerId" type="hidden" value={offerId} />
-        <button className="btn-secondary w-full justify-center" type="submit">
-          Reject offer
-        </button>
+        <PendingSubmitButton
+          className="btn-secondary w-full justify-center"
+          idle="Reject offer"
+          loading="Rejecting..."
+        />
       </form>
     </div>
   );
@@ -595,9 +657,82 @@ export function AdminApprovalForm({ userId }: { userId: string }) {
   return (
     <form action={approveFarmerAction}>
       <input name="userId" type="hidden" value={userId} />
-      <button className="btn-primary" type="submit">
-        Approve farmer
+      <PendingSubmitButton
+        className="btn-primary"
+        idle="Approve farmer"
+        loading="Approving..."
+      />
+    </form>
+  );
+}
+
+export function OrderReviewForm({
+  orderId,
+  targetName,
+  targetRole,
+  existingReview,
+}: {
+  orderId: string;
+  targetName: string;
+  targetRole: string;
+  existingReview?: {
+    rating: number;
+    feedback: string;
+  } | null;
+}) {
+  const [state, action, pending] = useActionState(submitReviewAction, initialState);
+
+  return (
+    <form action={action} className="grid gap-3">
+      <input name="orderId" type="hidden" value={orderId} />
+      <div className="flex items-center justify-between gap-4">
+        <p className="text-sm font-semibold text-stone-950">
+          Rate {targetName} ({targetRole})
+        </p>
+        {existingReview ? (
+          <span className="text-xs uppercase tracking-[0.18em] text-stone-500">
+            Editing saved review
+          </span>
+        ) : null}
+      </div>
+      <div>
+        <label className="label" htmlFor={`review-rating-${orderId}`}>
+          Rating
+        </label>
+        <select
+          className="field mt-2"
+          defaultValue={String(existingReview?.rating ?? 5)}
+          id={`review-rating-${orderId}`}
+          name="rating"
+        >
+          <option value="5">5 - Excellent</option>
+          <option value="4">4 - Good</option>
+          <option value="3">3 - Average</option>
+          <option value="2">2 - Poor</option>
+          <option value="1">1 - Very poor</option>
+        </select>
+      </div>
+      <div>
+        <label className="label" htmlFor={`review-feedback-${orderId}`}>
+          Feedback
+        </label>
+        <textarea
+          className="field mt-2 min-h-24"
+          defaultValue={existingReview?.feedback ?? ""}
+          id={`review-feedback-${orderId}`}
+          maxLength={500}
+          name="feedback"
+          placeholder="Share delivery quality, communication, and overall experience."
+        />
+      </div>
+      <button className="btn-secondary justify-center" disabled={pending} type="submit">
+        <ButtonLabel
+          idle={existingReview ? "Update feedback" : "Submit feedback"}
+          loading="Saving..."
+          pending={pending}
+        />
       </button>
+      <FormFeedback state={state} />
     </form>
   );
 }

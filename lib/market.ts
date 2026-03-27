@@ -1,7 +1,8 @@
 import "server-only";
 
 import { acceptOfferAction, rejectOfferAction } from "@/app/actions";
-import { getStore, getUserById } from "@/lib/store";
+import { getMandiComparisonForListing } from "@/lib/mandi";
+import { getReviewsForUser, getStore, getUserById, getUserReviewStats } from "@/lib/store";
 import type { OfferThreadView } from "@/lib/types";
 
 function formatCurrency(value: number) {
@@ -51,14 +52,53 @@ export async function getListingsWithContext() {
   return Promise.all(
     store.products.map(async (product) => {
       const farmer = await getUserById(product.farmerId);
+      const farmerStats = farmer
+        ? await getUserReviewStats(farmer.id)
+        : { averageRating: 0, reviewCount: 0 };
+      const mandiComparison = await getMandiComparisonForListing({
+        title: product.title,
+        category: product.category,
+        location: product.location,
+        price: product.price,
+        unit: product.unit,
+      });
       return {
         ...product,
         farmerName: farmer?.name ?? "Farmer",
+        farmerRating: farmerStats.averageRating || farmer?.rating || 0,
+        farmerReviewCount: farmerStats.reviewCount,
+        mandiComparison,
         suggestedPrice: estimateSuggestedPrice(product.price, product.sustainabilityScore),
         estimatedDelivery: estimateDelivery(product.location),
       };
     }),
   );
+}
+
+export async function getListingsMarketPulse() {
+  const listings = await getListingsWithContext();
+  const liveCount = listings.filter((listing) => listing.mandiComparison.status === "live").length;
+  const savingsCount = listings.filter((listing) => listing.mandiComparison.priceGap < 0).length;
+  const premiumCount = listings.filter((listing) => listing.mandiComparison.priceGap > 0).length;
+  const averageGap =
+    listings.length > 0
+      ? Number(
+          (
+            listings.reduce(
+              (sum, listing) => sum + listing.mandiComparison.priceGapPercent,
+              0,
+            ) / listings.length
+          ).toFixed(1),
+        )
+      : 0;
+
+  return {
+    liveCount,
+    savingsCount,
+    premiumCount,
+    averageGap,
+    listings,
+  };
 }
 
 export async function getDashboardData(userId: string) {
@@ -68,6 +108,9 @@ export async function getDashboardData(userId: string) {
   if (!user) {
     throw new Error("User not found");
   }
+
+  const reviewStats = await getUserReviewStats(userId);
+  const receivedReviews = await getReviewsForUser(userId);
 
   const myProducts = store.products.filter((product) => product.farmerId === userId);
   const myOffers = store.offers.filter((offer) => {
@@ -187,14 +230,27 @@ export async function getDashboardData(userId: string) {
 
   const orders = myOrders.map((order) => {
     const product = store.products.find((entry) => entry.id === order.productId);
+    const reviewTargetUserId = user.role === "buyer" ? order.farmerId : order.buyerId;
+    const reviewTarget = store.users.find((entry) => entry.id === reviewTargetUserId);
+    const existingReview = store.reviews.find((entry) => {
+      return entry.orderId === order.id && entry.reviewerId === userId;
+    });
     return {
       ...order,
       productTitle: product?.title ?? "Produce order",
+      reviewTargetName: reviewTarget?.name ?? "Marketplace user",
+      reviewTargetRole: reviewTarget?.role ?? "buyer",
+      existingReview,
     };
   });
 
   return {
-    user,
+    user: {
+      ...user,
+      rating: reviewStats.averageRating || user.rating,
+      reviewCount: reviewStats.reviewCount,
+    },
+    myProducts,
     heroText:
       user.role === "farmer"
         ? "Manage produce listings, respond to offers, and convert negotiations into paid deliveries."
@@ -228,6 +284,7 @@ export async function getDashboardData(userId: string) {
     pendingFarmers: store.users.filter(
       (entry) => entry.role === "farmer" && !entry.approved,
     ),
+    receivedReviews,
   };
 }
 

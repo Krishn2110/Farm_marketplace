@@ -14,6 +14,7 @@ import {
   Clock
 } from "lucide-react";
 import { SignupForm } from "@/app/ui/forms";
+import { LoadingLink } from "@/app/ui/navigation-progress";
 
 export default function SignupPage() {
   const features = [

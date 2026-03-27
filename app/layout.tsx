@@ -1,9 +1,16 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import { Poppins } from "next/font/google";
 
 import "./globals.css";
 import { logoutAction } from "@/app/actions";
 import { getOptionalSession } from "@/lib/auth";
+import { LoadingLink, NavigationProgressProvider } from "@/app/ui/navigation-progress";
+
+const poppins = Poppins({
+  variable: "--font-poppins",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+});
 
 export const metadata: Metadata = {
   title: "Farm Marketplace",
@@ -17,7 +24,7 @@ async function Header() {
   return (
     <header className="sticky top-0 z-40 border-b border-stone-900/8 bg-[rgba(247,243,234,0.88)] backdrop-blur">
       <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-6 py-4 sm:px-10 lg:px-12">
-        <Link href="/" className="flex items-center gap-3">
+        <LoadingLink href="/" className="flex items-center gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-stone-950 text-sm font-semibold text-stone-50 shadow-lg shadow-emerald-900/10">
             FM
           </div>
@@ -29,23 +36,20 @@ async function Header() {
               Farmers / Buyers / Admin
             </p>
           </div>
-        </Link>
+        </LoadingLink>
 
         <nav className="flex items-center gap-2 sm:gap-3">
-          <Link className="nav-link" href="/">
+          <LoadingLink className="nav-link" href="/">
             Home
-          </Link>
-          <Link className="nav-link" href="/listings">
+          </LoadingLink>
+          <LoadingLink className="nav-link" href="/listings">
             Listings
-          </Link>
-          <Link className="nav-link" href="/market-data">
-            Market Data
-          </Link>
+          </LoadingLink>
           {session ? (
             <>
-              <Link className="nav-link" href="/dashboard">
+              <LoadingLink className="nav-link" href="/dashboard">
                 Dashboard
-              </Link>
+              </LoadingLink>
               <form action={logoutAction}>
                 <button className="btn-secondary" type="submit">
                   Logout
@@ -54,12 +58,12 @@ async function Header() {
             </>
           ) : (
             <>
-              <Link className="nav-link" href="/login">
+              <LoadingLink className="nav-link" href="/login">
                 Login
-              </Link>
-              <Link className="btn-primary" href="/signup">
+              </LoadingLink>
+              <LoadingLink className="btn-primary" href="/signup">
                 Sign up
-              </Link>
+              </LoadingLink>
             </>
           )}
         </nav>
@@ -77,21 +81,18 @@ function Footer() {
           <p className="mt-1">Fresh sourcing for farmers, shops, and restaurants.</p>
         </div>
         <div className="flex flex-wrap gap-4">
-          <Link className="hover:text-emerald-800" href="/">
+          <LoadingLink className="hover:text-emerald-800" href="/">
             Home
-          </Link>
-          <Link className="hover:text-emerald-800" href="/listings">
+          </LoadingLink>
+          <LoadingLink className="hover:text-emerald-800" href="/listings">
             Listings
-          </Link>
-          <Link className="hover:text-emerald-800" href="/market-data">
-            Market Data
-          </Link>
-          <Link className="hover:text-emerald-800" href="/login">
+          </LoadingLink>
+          <LoadingLink className="hover:text-emerald-800" href="/login">
             Login
-          </Link>
-          <Link className="hover:text-emerald-800" href="/signup">
+          </LoadingLink>
+          <LoadingLink className="hover:text-emerald-800" href="/signup">
             Sign up
-          </Link>
+          </LoadingLink>
         </div>
       </div>
     </footer>
@@ -107,11 +108,13 @@ export default function RootLayout({
     <html lang="en" className="h-full antialiased">
       <body className="min-h-full bg-[linear-gradient(180deg,#fff8ee_0%,#f6f3eb_52%,#eef7f0_100%)] text-stone-950">
         <div className="absolute inset-x-0 top-0 -z-10 h-[32rem] bg-[radial-gradient(circle_at_top,_rgba(246,190,92,0.18),_transparent_46%),radial-gradient(circle_at_left,_rgba(21,128,61,0.16),_transparent_35%)]" />
-        <div className="flex min-h-screen flex-col">
-          <Header />
-          <main className="flex-1 pb-16">{children}</main>
-          <Footer />
-        </div>
+        <NavigationProgressProvider>
+          <div className="flex min-h-screen flex-col">
+            <Header />
+            <main className="flex-1 pb-16">{children}</main>
+            <Footer />
+          </div>
+        </NavigationProgressProvider>
       </body>
     </html>
   );
