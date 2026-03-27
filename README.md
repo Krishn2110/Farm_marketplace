@@ -2,6 +2,34 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
+1. Install dependencies:
+
+```bash
+npm install
+```
+
+2. Create `.env.local` using `.env.example` and set:
+
+```bash
+MONGODB_URI=your_mongodb_connection_string
+MONGODB_DB=farm_marketplace
+```
+
+3. Run the development server:
+
+```bash
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) with your browser.
+
+## MongoDB
+
+- App now stores data in MongoDB collection `store`.
+- On first run, seed data is inserted automatically if no store document exists.
+
+## Legacy Next.js template notes
+
 First, run the development server:
 
 ```bash

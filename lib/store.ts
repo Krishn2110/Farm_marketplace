@@ -1,9 +1,8 @@
 import "server-only";
 
 import { createHash, randomUUID } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import path from "node:path";
 
+import { getDatabase } from "@/lib/mongodb";
 import { seedData } from "@/lib/seed-data";
 import type {
   DeliveryType,
@@ -16,31 +15,65 @@ import type {
   UserRecord,
 } from "@/lib/types";
 
-const dataDirectory = path.join(process.cwd(), "data");
-const dataFile = path.join(dataDirectory, "store.json");
+const collectionName = "store";
+const documentKey = "main";
+
+type StoreDocument = StoreData & {
+  key: string;
+};
 
 function hashPassword(password: string) {
   return createHash("sha256").update(password).digest("hex");
 }
 
-async function ensureStoreFile() {
-  await mkdir(dataDirectory, { recursive: true });
-
-  try {
-    await readFile(dataFile, "utf8");
-  } catch {
-    await writeFile(dataFile, JSON.stringify(seedData, null, 2), "utf8");
-  }
+async function getStoreCollection() {
+  const database = await getDatabase();
+  return database.collection<StoreDocument>(collectionName);
 }
 
-async function readStore(): Promise<StoreData> {
-  await ensureStoreFile();
-  const source = await readFile(dataFile, "utf8");
-  return JSON.parse(source) as StoreData;
+async function ensureStoreDocument() {
+  const collection = await getStoreCollection();
+  await collection.updateOne(
+    { key: documentKey },
+    {
+      $setOnInsert: {
+        key: documentKey,
+        ...seedData,
+      },
+    },
+    { upsert: true },
+  );
 }
 
 async function writeStore(store: StoreData) {
-  await writeFile(dataFile, JSON.stringify(store, null, 2), "utf8");
+  const collection = await getStoreCollection();
+  await collection.updateOne(
+    { key: documentKey },
+    {
+      $set: {
+        key: documentKey,
+        ...store,
+      },
+    },
+    { upsert: true },
+  );
+}
+
+async function readStore(): Promise<StoreData> {
+  await ensureStoreDocument();
+  const collection = await getStoreCollection();
+  const document = await collection.findOne({ key: documentKey });
+
+  if (!document) {
+    return structuredClone(seedData);
+  }
+
+  return {
+    users: document.users ?? [],
+    products: document.products ?? [],
+    offers: document.offers ?? [],
+    orders: document.orders ?? [],
+  };
 }
 
 export async function getStore() {
