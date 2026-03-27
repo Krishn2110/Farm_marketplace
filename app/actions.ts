@@ -15,6 +15,7 @@ import {
   createListing,
   createOffer,
   createOrderFromOffer,
+  createOrUpdateReview,
   createUser,
   createPasswordResetToken,
   getProductById,
@@ -41,10 +42,6 @@ export type FormState = {
 
 function readString(formData: FormData, key: string) {
   return String(formData.get(key) ?? "").trim();
-}
-
-function readNumber(formData: FormData, key: string) {
-  return Number(readString(formData, key));
 }
 
 const listingUploadDirectory = path.join(
@@ -356,7 +353,21 @@ export async function createListingAction(
       deliveryOptions,
       images,
     });
+    logAuthEvent({
+      event: "farmer_listing_created",
+      userId: session.userId,
+      ip: await getClientIp(),
+      reason: `category_${category}`,
+    });
   } catch (error) {
+    if (error instanceof Error) {
+      logAuthEvent({
+        event: "farmer_listing_failed",
+        userId: session.userId,
+        ip: await getClientIp(),
+        reason: error.message,
+      });
+    }
     if (error instanceof Error) {
       if (error.message === "FARMER_NOT_APPROVED") {
         return { error: "Your farmer account is pending admin approval." };
@@ -378,12 +389,30 @@ export async function createOfferAction(
   formData: FormData,
 ): Promise<FormState> {
   const session = await ensureSession(["buyer"]);
+  const ip = await getClientIp();
   const productId = readString(formData, "productId");
-  const offeredPrice = readNumber(formData, "offeredPrice");
+  const offeredPrice = readPositiveNumber(formData, "offeredPrice");
   const message = readString(formData, "message");
 
-  if (!productId || Number.isNaN(offeredPrice)) {
-    return { error: "Select a product and offer price." };
+  if (!productId || offeredPrice === null) {
+    return { error: "Select a product and enter a valid offer price." };
+  }
+
+  const offerRateLimit = consumeRateLimit(
+    `offer:${session.userId}:${productId}:${ip}`,
+    8,
+    10 * 60 * 1000,
+  );
+  if (!offerRateLimit.allowed) {
+    logAuthEvent({
+      event: "offer_rate_limited",
+      userId: session.userId,
+      ip,
+      reason: `retry_after_${offerRateLimit.retryAfterSeconds}s`,
+    });
+    return {
+      error: `Too many offers sent. Try again in about ${offerRateLimit.retryAfterSeconds} seconds.`,
+    };
   }
 
   const product = await getProductById(productId);
@@ -391,13 +420,52 @@ export async function createOfferAction(
     return { error: "This listing is no longer available." };
   }
 
-  await createOffer({
-    productId,
-    buyerId: session.userId,
-    farmerId: product.farmerId,
-    offeredPrice,
-    message,
-  });
+  try {
+    const result = await createOffer({
+      productId,
+      buyerId: session.userId,
+      farmerId: product.farmerId,
+      offeredPrice,
+      message,
+    });
+    logAuthEvent({
+      event: result.mode === "created" ? "offer_created" : "offer_updated",
+      userId: session.userId,
+      ip,
+      reason: `offer_${result.offer.id}`,
+    });
+  } catch (error) {
+    if (error instanceof Error) {
+      logAuthEvent({
+        event: "offer_failed",
+        userId: session.userId,
+        ip,
+        reason: error.message,
+      });
+      if (error.message === "SELF_OFFER_NOT_ALLOWED") {
+        return { error: "You cannot place an offer on your own listing." };
+      }
+      if (error.message === "INVALID_OFFER_PRICE") {
+        return { error: "Offer price must be greater than 0." };
+      }
+      if (error.message === "OFFER_MESSAGE_TOO_LONG") {
+        return { error: "Offer message is too long. Keep it under 600 characters." };
+      }
+      if (error.message === "PRODUCT_NOT_FOUND") {
+        return { error: "This listing is no longer available." };
+      }
+      if (error.message === "PRODUCT_OUT_OF_STOCK") {
+        return { error: "This listing is currently out of stock." };
+      }
+      if (error.message === "FARMER_NOT_APPROVED") {
+        return {
+          error:
+            "This farmer account is not approved right now. Please try another listing.",
+        };
+      }
+    }
+    return { error: "Unable to send offer right now. Please try again." };
+  }
 
   revalidatePath("/listings");
   revalidatePath("/dashboard");
@@ -409,6 +477,7 @@ export async function addOfferMessageAction(
   formData: FormData,
 ): Promise<FormState> {
   const session = await ensureSession();
+  const ip = await getClientIp();
   const offerId = readString(formData, "offerId");
   const text = readString(formData, "text");
 
@@ -416,7 +485,49 @@ export async function addOfferMessageAction(
     return { error: "Write a message before sending." };
   }
 
-  await addMessageToOffer(offerId, session.userId, text);
+  const messageRateLimit = consumeRateLimit(
+    `offer-message:${session.userId}:${offerId}:${ip}`,
+    20,
+    10 * 60 * 1000,
+  );
+  if (!messageRateLimit.allowed) {
+    return {
+      error: `Too many messages sent. Try again in about ${messageRateLimit.retryAfterSeconds} seconds.`,
+    };
+  }
+
+  try {
+    await addMessageToOffer(offerId, session.userId, text);
+    logAuthEvent({
+      event: "offer_message_sent",
+      userId: session.userId,
+      ip,
+      reason: `offer_${offerId}`,
+    });
+  } catch (error) {
+    if (error instanceof Error) {
+      logAuthEvent({
+        event: "offer_message_failed",
+        userId: session.userId,
+        ip,
+        reason: error.message,
+      });
+      if (error.message === "OFFER_NOT_FOUND") {
+        return { error: "Offer thread not found." };
+      }
+      if (error.message === "OFFER_MESSAGE_FORBIDDEN") {
+        return { error: "You are not allowed to message in this offer thread." };
+      }
+      if (error.message === "EMPTY_OFFER_MESSAGE") {
+        return { error: "Write a message before sending." };
+      }
+      if (error.message === "OFFER_MESSAGE_TOO_LONG") {
+        return { error: "Message is too long. Keep it under 1000 characters." };
+      }
+    }
+    return { error: "Unable to send message right now. Please try again." };
+  }
+
   revalidatePath("/dashboard");
   revalidatePath(`/dashboard/offers/${offerId}`);
   return { success: "Message sent." };
@@ -424,6 +535,7 @@ export async function addOfferMessageAction(
 
 export async function acceptOfferAction(formData: FormData) {
   const session = await ensureSession(["farmer"]);
+  const ip = await getClientIp();
   const offerId = readString(formData, "offerId");
   const address = readString(formData, "address");
   const deliveryType =
@@ -433,13 +545,58 @@ export async function acceptOfferAction(formData: FormData) {
       ? "stripe"
       : "razorpay";
 
-  await acceptOffer(offerId, session.userId);
-  await createOrderFromOffer({
-    offerId,
-    address,
-    deliveryType,
-    paymentProvider,
-  });
+  if (!offerId || !address.trim()) {
+    logAuthEvent({
+      event: "offer_action_failed",
+      userId: session.userId,
+      ip,
+      reason: "missing_offer_or_address",
+    });
+    redirect("/dashboard");
+  }
+
+  try {
+    await acceptOffer(offerId, session.userId);
+    logAuthEvent({
+      event: "offer_accepted",
+      userId: session.userId,
+      ip,
+      reason: `offer_${offerId}`,
+    });
+  } catch (error) {
+    logAuthEvent({
+      event: "offer_action_failed",
+      userId: session.userId,
+      ip,
+      reason: error instanceof Error ? error.message : "accept_offer_unknown",
+    });
+    redirect(`/dashboard/offers/${offerId}`);
+  }
+
+  try {
+    await createOrderFromOffer({
+      offerId,
+      address,
+      deliveryType,
+      paymentProvider,
+    });
+    logAuthEvent({
+      event: "order_created",
+      userId: session.userId,
+      ip,
+      reason: `offer_${offerId}`,
+    });
+  } catch (error) {
+    logAuthEvent({
+      event: "order_create_failed",
+      userId: session.userId,
+      ip,
+      reason: error instanceof Error ? error.message : "create_order_unknown",
+    });
+    if (error instanceof Error && error.message === "INSUFFICIENT_STOCK_FOR_ORDER") {
+      redirect(`/dashboard/offers/${offerId}`);
+    }
+  }
 
   revalidatePath("/dashboard");
   redirect(`/dashboard/offers/${offerId}`);
@@ -447,17 +604,170 @@ export async function acceptOfferAction(formData: FormData) {
 
 export async function rejectOfferAction(formData: FormData) {
   const session = await ensureSession(["farmer"]);
+  const ip = await getClientIp();
   const offerId = readString(formData, "offerId");
-  await rejectOffer(offerId, session.userId);
+
+  if (!offerId) {
+    logAuthEvent({
+      event: "offer_action_failed",
+      userId: session.userId,
+      ip,
+      reason: "missing_offer_id",
+    });
+    redirect("/dashboard");
+  }
+
+  try {
+    await rejectOffer(offerId, session.userId);
+    logAuthEvent({
+      event: "offer_rejected",
+      userId: session.userId,
+      ip,
+      reason: `offer_${offerId}`,
+    });
+  } catch (error) {
+    logAuthEvent({
+      event: "offer_action_failed",
+      userId: session.userId,
+      ip,
+      reason: error instanceof Error ? error.message : "reject_offer_unknown",
+    });
+  }
+
   revalidatePath("/dashboard");
   redirect(`/dashboard/offers/${offerId}`);
 }
 
 export async function approveFarmerAction(formData: FormData) {
-  await ensureSession(["admin"]);
+  const session = await ensureSession(["admin"]);
+  const ip = await getClientIp();
   const userId = readString(formData, "userId");
-  await approveFarmer(userId);
+
+  const rateLimit = consumeRateLimit(
+    `admin-approve:${session.userId}:${ip}`,
+    40,
+    10 * 60 * 1000,
+  );
+  if (!rateLimit.allowed) {
+    logAuthEvent({
+      event: "admin_action_rate_limited",
+      userId: session.userId,
+      ip,
+      reason: `retry_after_${rateLimit.retryAfterSeconds}s`,
+    });
+    return;
+  }
+
+  if (!userId) {
+    logAuthEvent({
+      event: "admin_approve_failed",
+      userId: session.userId,
+      ip,
+      reason: "missing_user_id",
+    });
+    return;
+  }
+
+  try {
+    await approveFarmer(userId);
+    logAuthEvent({
+      event: "admin_farmer_approved",
+      userId: session.userId,
+      ip,
+      reason: `approved_${userId}`,
+    });
+  } catch (error) {
+    logAuthEvent({
+      event: "admin_approve_failed",
+      userId: session.userId,
+      ip,
+      reason: error instanceof Error ? error.message : "approve_unknown",
+    });
+    return;
+  }
+
   revalidatePath("/dashboard");
+  revalidatePath("/listings");
+}
+
+export async function submitReviewAction(
+  _state: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const session = await ensureSession(["buyer", "farmer"]);
+  const ip = await getClientIp();
+  const orderId = readString(formData, "orderId");
+  const rating = Number(readString(formData, "rating"));
+  const feedback = readString(formData, "feedback");
+
+  if (!orderId) {
+    return { error: "Review target is missing." };
+  }
+
+  const rateLimit = consumeRateLimit(
+    `review:${session.userId}:${orderId}:${ip}`,
+    10,
+    10 * 60 * 1000,
+  );
+  if (!rateLimit.allowed) {
+    logAuthEvent({
+      event: "review_rate_limited",
+      userId: session.userId,
+      ip,
+      reason: `retry_after_${rateLimit.retryAfterSeconds}s`,
+    });
+    return {
+      error: `Too many review attempts. Try again in about ${rateLimit.retryAfterSeconds} seconds.`,
+    };
+  }
+
+  try {
+    const result = await createOrUpdateReview({
+      orderId,
+      reviewerId: session.userId,
+      rating,
+      feedback,
+    });
+    logAuthEvent({
+      event: result.mode === "created" ? "review_created" : "review_updated",
+      userId: session.userId,
+      ip,
+      reason: `order_${orderId}`,
+    });
+  } catch (error) {
+    logAuthEvent({
+      event: "review_failed",
+      userId: session.userId,
+      ip,
+      reason: error instanceof Error ? error.message : "review_unknown",
+    });
+
+    if (error instanceof Error) {
+      if (error.message === "ORDER_NOT_FOUND") {
+        return { error: "This order was not found." };
+      }
+      if (error.message === "REVIEW_FORBIDDEN") {
+        return { error: "You can only review the buyer or farmer from your own order." };
+      }
+      if (error.message === "REVIEWER_NOT_ALLOWED") {
+        return { error: "Only buyers and farmers can submit reviews." };
+      }
+      if (error.message === "INVALID_REVIEW_RATING") {
+        return { error: "Please choose a rating between 1 and 5 stars." };
+      }
+      if (error.message === "EMPTY_REVIEW_FEEDBACK") {
+        return { error: "Please add a short feedback message." };
+      }
+      if (error.message === "REVIEW_FEEDBACK_TOO_LONG") {
+        return { error: "Feedback is too long. Keep it under 500 characters." };
+      }
+    }
+
+    return { error: "Unable to save feedback right now. Please try again." };
+  }
+
+  revalidatePath("/dashboard");
+  return { success: "Feedback saved." };
 }
 
 export async function quickDemoLoginAction(formData: FormData) {

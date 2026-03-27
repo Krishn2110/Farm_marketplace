@@ -1,6 +1,5 @@
-import Link from "next/link";
-
 import { DemoLoginButtons, LoginForm } from "@/app/ui/forms";
+import { LoadingLink } from "@/app/ui/navigation-progress";
 
 export default function LoginPage() {
   return (
@@ -58,9 +57,9 @@ export default function LoginPage() {
 
         <p className="mt-8 text-sm text-stone-600">
           New here?{" "}
-          <Link className="font-semibold text-emerald-800" href="/signup">
+          <LoadingLink className="font-semibold text-emerald-800" href="/signup">
             Create an account
-          </Link>
+          </LoadingLink>
         </p>
       </section>
     </div>

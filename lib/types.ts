@@ -58,12 +58,25 @@ export type OfferRecord = {
   updatedAt: string;
 };
 
+export type ReviewRecord = {
+  id: string;
+  orderId: string;
+  reviewerId: string;
+  revieweeId: string;
+  rating: number;
+  feedback: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type OrderRecord = {
   id: string;
   offerId: string;
   productId: string;
   buyerId: string;
   farmerId: string;
+  quantity: number;
+  unit: string;
   total: number;
   status: OrderStatus;
   deliveryType: DeliveryType;
@@ -87,6 +100,7 @@ export type StoreData = {
   users: UserRecord[];
   products: ProductRecord[];
   offers: OfferRecord[];
+  reviews: ReviewRecord[];
   orders: OrderRecord[];
   passwordResets: PasswordResetRecord[];
 };

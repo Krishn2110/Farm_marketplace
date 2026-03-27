@@ -1,14 +1,14 @@
-import Link from "next/link";
-
 import {
   AdminApprovalForm,
   FarmerListingForm,
   FarmerOfferActions,
+  OrderReviewForm,
   OfferMessageForm,
   ProfileForm,
 } from "@/app/ui/forms";
 import { ensureSession } from "@/lib/auth";
 import { getDashboardData } from "@/lib/market";
+import { LoadingLink } from "@/app/ui/navigation-progress";
 
 export default async function DashboardPage() {
   const session = await ensureSession();
@@ -34,14 +34,22 @@ export default async function DashboardPage() {
               Languages: {dashboard.user.languages.join(", ") || "English"}
             </p>
             <p className="mt-1">
-              Location: {dashboard.user.location} • Trust score {dashboard.user.rating}
+              Location: {dashboard.user.location} | Trust score {dashboard.user.rating}
+            </p>
+            <p className="mt-1 text-xs uppercase tracking-[0.18em] text-stone-500">
+              {dashboard.user.reviewCount > 0
+                ? `${dashboard.user.reviewCount} review${dashboard.user.reviewCount === 1 ? "" : "s"} received`
+                : "No submitted reviews yet"}
             </p>
           </div>
         </div>
 
         <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {dashboard.metrics.map((metric) => (
-            <div key={metric.label} className="rounded-2xl border border-stone-900/10 bg-white px-5 py-5">
+            <div
+              key={metric.label}
+              className="rounded-2xl border border-stone-900/10 bg-white px-5 py-5"
+            >
               <p className="text-xs uppercase tracking-[0.24em] text-stone-500">
                 {metric.label}
               </p>
@@ -101,6 +109,75 @@ export default async function DashboardPage() {
         )}
       </section>
 
+      {dashboard.user.role === "farmer" ? (
+        <section className="panel panel-strong">
+          <div className="flex items-end justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-semibold text-stone-950">
+                Your listings
+              </h2>
+              <p className="mt-2 text-sm leading-7 text-stone-600">
+                Only products published by your account are shown here.
+              </p>
+            </div>
+            <span className="rounded-full bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-900">
+              {dashboard.myProducts.length} live listing
+              {dashboard.myProducts.length === 1 ? "" : "s"}
+            </span>
+          </div>
+
+          <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {dashboard.myProducts.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-stone-900/15 bg-white px-4 py-6 text-sm text-stone-600">
+                You have not published any products yet.
+              </div>
+            ) : (
+              dashboard.myProducts.map((product) => (
+                <article
+                  key={product.id}
+                  className="rounded-2xl border border-stone-900/10 bg-white px-5 py-5"
+                >
+                  <p className="text-xs uppercase tracking-[0.24em] text-stone-500">
+                    {product.category}
+                  </p>
+                  <h3 className="mt-2 text-xl font-semibold text-stone-950">
+                    {product.title}
+                  </h3>
+                  <p className="mt-3 text-sm leading-7 text-stone-600">
+                    {product.location}
+                  </p>
+                  <p className="mt-2 text-sm leading-7 text-stone-600">
+                    Harvested on {product.harvestDate}
+                  </p>
+                  <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-2xl bg-stone-50 px-4 py-4">
+                      <p className="text-xs uppercase tracking-[0.2em] text-stone-500">
+                        Price
+                      </p>
+                      <p className="mt-2 text-lg font-semibold text-stone-950">
+                        Rs. {product.price}/{product.unit}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl bg-stone-50 px-4 py-4">
+                      <p className="text-xs uppercase tracking-[0.2em] text-stone-500">
+                        Stock
+                      </p>
+                      <p className="mt-2 text-lg font-semibold text-stone-950">
+                        {product.quantity}
+                        {product.unit}
+                      </p>
+                    </div>
+                  </div>
+                  <p className="mt-5 rounded-2xl border border-emerald-900/10 bg-emerald-50 px-4 py-4 text-sm leading-7 text-emerald-950">
+                    {product.freshnessNote}
+                  </p>
+                </article>
+              ))
+            )}
+          </div>
+        </section>
+      ) : null}
+
       <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
         <div className="panel panel-strong">
           <div className="flex items-end justify-between gap-4">
@@ -112,9 +189,15 @@ export default async function DashboardPage() {
                 Every offer keeps messages, response state, and order conversion in one place.
               </p>
             </div>
-            <Link className="text-sm font-semibold text-emerald-800" href="/listings">
-              Browse listings
-            </Link>
+            {dashboard.user.role === "farmer" ? (
+              <span className="text-sm font-semibold text-stone-500">
+                Farmer negotiations
+              </span>
+            ) : (
+              <LoadingLink className="text-sm font-semibold text-emerald-800" href="/listings">
+                Browse listings
+              </LoadingLink>
+            )}
           </div>
 
           <div className="mt-6 grid gap-5">
@@ -139,16 +222,16 @@ export default async function DashboardPage() {
                         </span>
                       </div>
                       <p className="mt-2 text-sm leading-7 text-stone-600">
-                        {offer.counterpartyLabel} • Offer at Rs. {offer.offeredPrice}/
+                        {offer.counterpartyLabel} | Offer at Rs. {offer.offeredPrice}/
                         {offer.unit}
                       </p>
                     </div>
-                    <Link
+                    <LoadingLink
                       className="btn-secondary"
                       href={`/dashboard/offers/${offer.id}`}
                     >
                       Open thread
-                    </Link>
+                    </LoadingLink>
                   </div>
 
                   <div className="mt-5 grid gap-3 sm:grid-cols-2">
@@ -201,13 +284,64 @@ export default async function DashboardPage() {
                     {order.address}
                   </p>
                   <p className="mt-2 text-sm text-stone-700">
-                    ETA {order.eta} • {order.deliveryType} • {order.paymentProvider}{" "}
+                    Ordered quantity {order.quantity}
+                    {order.unit}
+                  </p>
+                  <p className="mt-2 text-sm text-stone-700">
+                    ETA {order.eta} | {order.deliveryType} | {order.paymentProvider}{" "}
                     {order.paymentStatus}
                   </p>
+                  {dashboard.user.role !== "admin" ? (
+                    <div className="mt-4 rounded-2xl border border-stone-900/10 bg-stone-50 px-4 py-4">
+                      <OrderReviewForm
+                        existingReview={order.existingReview}
+                        orderId={order.id}
+                        targetName={order.reviewTargetName}
+                        targetRole={order.reviewTargetRole}
+                      />
+                    </div>
+                  ) : null}
                 </div>
               ))}
             </div>
           </section>
+
+          {dashboard.user.role !== "admin" ? (
+            <section className="panel panel-strong">
+              <h2 className="text-2xl font-semibold text-stone-950">
+                Received feedback
+              </h2>
+              <div className="mt-6 grid gap-4">
+                {dashboard.receivedReviews.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-stone-900/15 bg-white px-4 py-6 text-sm text-stone-600">
+                    No one has reviewed this account yet.
+                  </div>
+                ) : (
+                  dashboard.receivedReviews.map((review) => (
+                    <div
+                      key={review.id}
+                      className="rounded-2xl border border-stone-900/10 bg-white px-4 py-4"
+                    >
+                      <div className="flex items-center justify-between gap-4">
+                        <p className="font-semibold text-stone-950">
+                          {review.reviewerName}
+                        </p>
+                        <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-900">
+                          {review.rating}/5
+                        </span>
+                      </div>
+                      <p className="mt-2 text-xs uppercase tracking-[0.18em] text-stone-500">
+                        {review.reviewerRole} review
+                      </p>
+                      <p className="mt-3 text-sm leading-7 text-stone-700">
+                        {review.feedback}
+                      </p>
+                    </div>
+                  ))
+                )}
+              </div>
+            </section>
+          ) : null}
 
           {dashboard.user.role === "admin" ? (
             <section className="panel panel-strong">
@@ -222,7 +356,7 @@ export default async function DashboardPage() {
                   >
                     <p className="font-semibold text-stone-950">{farmer.name}</p>
                     <p className="mt-1 text-sm text-stone-600">
-                      {farmer.location} • {farmer.farmType || "Mixed produce"}
+                      {farmer.location} | {farmer.farmType || "Mixed produce"}
                     </p>
                     <div className="mt-4">
                       <AdminApprovalForm userId={farmer.id} />

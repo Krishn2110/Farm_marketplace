@@ -128,6 +128,16 @@ textarea {
   background: #166534;
 }
 
+.btn-primary:disabled,
+.btn-secondary:disabled,
+.btn-light:disabled,
+.btn-outline-light:disabled {
+  cursor: wait;
+  opacity: 0.78;
+  transform: none;
+  box-shadow: none;
+}
+
 .btn-secondary {
   display: inline-flex;
   align-items: center;

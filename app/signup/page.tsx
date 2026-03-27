@@ -1,6 +1,5 @@
-import Link from "next/link";
-
 import { SignupForm } from "@/app/ui/forms";
+import { LoadingLink } from "@/app/ui/navigation-progress";
 
 export default function SignupPage() {
   return (
@@ -21,9 +20,9 @@ export default function SignupPage() {
 
         <p className="mt-8 text-sm text-stone-600">
           Already have an account?{" "}
-          <Link className="font-semibold text-emerald-800" href="/login">
+          <LoadingLink className="font-semibold text-emerald-800" href="/login">
             Sign in
-          </Link>
+          </LoadingLink>
         </p>
       </section>
 

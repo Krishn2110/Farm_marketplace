@@ -11,6 +11,7 @@ import type {
   PasswordResetRecord,
   PaymentProvider,
   ProductRecord,
+  ReviewRecord,
   Role,
   StoreData,
   UserRecord,
@@ -77,6 +78,7 @@ async function readStore(): Promise<StoreData> {
     users: document.users ?? [],
     products: document.products ?? [],
     offers: document.offers ?? [],
+    reviews: document.reviews ?? [],
     orders: document.orders ?? [],
     passwordResets: document.passwordResets ?? [],
   };
@@ -226,6 +228,42 @@ export async function getProductById(productId: string) {
   return store.products.find((product) => product.id === productId) ?? null;
 }
 
+export async function getUserReviewStats(userId: string) {
+  const store = await readStore();
+  const reviews = store.reviews.filter((entry) => entry.revieweeId === userId);
+
+  if (!reviews.length) {
+    const user = store.users.find((entry) => entry.id === userId);
+    return {
+      averageRating: user?.rating ?? 0,
+      reviewCount: 0,
+    };
+  }
+
+  const total = reviews.reduce((sum, entry) => sum + entry.rating, 0);
+  return {
+    averageRating: Number((total / reviews.length).toFixed(1)),
+    reviewCount: reviews.length,
+  };
+}
+
+export async function getReviewsForUser(userId: string) {
+  const store = await readStore();
+  const userMap = new Map(store.users.map((user) => [user.id, user]));
+
+  return store.reviews
+    .filter((entry) => entry.revieweeId === userId)
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+    .map((review) => {
+      const reviewer = userMap.get(review.reviewerId);
+      return {
+        ...review,
+        reviewerName: reviewer?.name ?? "Marketplace user",
+        reviewerRole: reviewer?.role ?? "buyer",
+      };
+    });
+}
+
 export async function createOffer(input: {
   productId: string;
   buyerId: string;
@@ -234,6 +272,77 @@ export async function createOffer(input: {
   message: string;
 }) {
   const store = await readStore();
+  const buyer = store.users.find((entry) => entry.id === input.buyerId);
+  const product = store.products.find((entry) => entry.id === input.productId);
+  const farmer = store.users.find((entry) => entry.id === input.farmerId);
+  const messageText = input.message.trim() || "Buyer opened a negotiation.";
+
+  if (!buyer || buyer.role !== "buyer") {
+    throw new Error("BUYER_NOT_FOUND");
+  }
+
+  if (!product) {
+    throw new Error("PRODUCT_NOT_FOUND");
+  }
+
+  if (!farmer || farmer.role !== "farmer") {
+    throw new Error("FARMER_NOT_FOUND");
+  }
+
+  if (!farmer.approved) {
+    throw new Error("FARMER_NOT_APPROVED");
+  }
+
+  if (!Number.isFinite(product.quantity) || product.quantity <= 0) {
+    throw new Error("PRODUCT_OUT_OF_STOCK");
+  }
+
+  if (product.farmerId !== input.farmerId) {
+    throw new Error("INVALID_FARMER_FOR_PRODUCT");
+  }
+
+  if (input.buyerId === product.farmerId) {
+    throw new Error("SELF_OFFER_NOT_ALLOWED");
+  }
+
+  if (!Number.isFinite(input.offeredPrice) || input.offeredPrice <= 0) {
+    throw new Error("INVALID_OFFER_PRICE");
+  }
+
+  if (messageText.length > 600) {
+    throw new Error("OFFER_MESSAGE_TOO_LONG");
+  }
+
+  const existingPendingOffer = store.offers.find((entry) => {
+    return (
+      entry.productId === input.productId &&
+      entry.buyerId === input.buyerId &&
+      entry.status === "pending"
+    );
+  });
+
+  if (existingPendingOffer) {
+    existingPendingOffer.offeredPrice = input.offeredPrice;
+    existingPendingOffer.updatedAt = new Date().toISOString();
+    existingPendingOffer.messages.push({
+      id: randomUUID(),
+      senderId: input.buyerId,
+      text: messageText,
+      createdAt: new Date().toLocaleString("en-IN", {
+        hour: "2-digit",
+        minute: "2-digit",
+        day: "2-digit",
+        month: "short",
+      }),
+    });
+
+    await writeStore(store);
+    return {
+      offer: existingPendingOffer,
+      mode: "updated" as const,
+    };
+  }
+
   const offer: OfferRecord = {
     id: randomUUID(),
     productId: input.productId,
@@ -245,7 +354,7 @@ export async function createOffer(input: {
       {
         id: randomUUID(),
         senderId: input.buyerId,
-        text: input.message || "Buyer opened a negotiation.",
+        text: messageText,
         createdAt: new Date().toLocaleString("en-IN", {
           hour: "2-digit",
           minute: "2-digit",
@@ -260,7 +369,10 @@ export async function createOffer(input: {
 
   store.offers.unshift(offer);
   await writeStore(store);
-  return offer;
+  return {
+    offer,
+    mode: "created" as const,
+  };
 }
 
 export async function addMessageToOffer(
@@ -272,13 +384,35 @@ export async function addMessageToOffer(
   const offer = store.offers.find((entry) => entry.id === offerId);
 
   if (!offer) {
-    return null;
+    throw new Error("OFFER_NOT_FOUND");
+  }
+
+  const sender = store.users.find((entry) => entry.id === senderId);
+  if (!sender) {
+    throw new Error("SENDER_NOT_FOUND");
+  }
+
+  const canMessage =
+    sender.role === "admin" ||
+    senderId === offer.buyerId ||
+    senderId === offer.farmerId;
+  if (!canMessage) {
+    throw new Error("OFFER_MESSAGE_FORBIDDEN");
+  }
+
+  const trimmedText = text.trim();
+  if (!trimmedText) {
+    throw new Error("EMPTY_OFFER_MESSAGE");
+  }
+
+  if (trimmedText.length > 1000) {
+    throw new Error("OFFER_MESSAGE_TOO_LONG");
   }
 
   offer.messages.push({
     id: randomUUID(),
     senderId,
-    text,
+    text: trimmedText,
     createdAt: new Date().toLocaleString("en-IN", {
       hour: "2-digit",
       minute: "2-digit",
@@ -294,12 +428,26 @@ export async function addMessageToOffer(
 
 export async function acceptOffer(offerId: string, farmerId: string) {
   const store = await readStore();
+  const farmer = store.users.find((entry) => entry.id === farmerId);
+
+  if (!farmer || farmer.role !== "farmer") {
+    throw new Error("FARMER_NOT_FOUND");
+  }
+
+  if (!farmer.approved) {
+    throw new Error("FARMER_NOT_APPROVED");
+  }
+
   const offer = store.offers.find(
     (entry) => entry.id === offerId && entry.farmerId === farmerId,
   );
 
   if (!offer) {
-    return null;
+    throw new Error("OFFER_NOT_FOUND");
+  }
+
+  if (offer.status !== "pending") {
+    throw new Error("OFFER_NOT_PENDING");
   }
 
   offer.status = "accepted";
@@ -322,12 +470,26 @@ export async function acceptOffer(offerId: string, farmerId: string) {
 
 export async function rejectOffer(offerId: string, farmerId: string) {
   const store = await readStore();
+  const farmer = store.users.find((entry) => entry.id === farmerId);
+
+  if (!farmer || farmer.role !== "farmer") {
+    throw new Error("FARMER_NOT_FOUND");
+  }
+
+  if (!farmer.approved) {
+    throw new Error("FARMER_NOT_APPROVED");
+  }
+
   const offer = store.offers.find(
     (entry) => entry.id === offerId && entry.farmerId === farmerId,
   );
 
   if (!offer) {
-    return null;
+    throw new Error("OFFER_NOT_FOUND");
+  }
+
+  if (offer.status !== "pending") {
+    throw new Error("OFFER_NOT_PENDING");
   }
 
   offer.status = "rejected";
@@ -358,12 +520,31 @@ export async function createOrderFromOffer(input: {
   const offer = store.offers.find((entry) => entry.id === input.offerId);
 
   if (!offer) {
-    return null;
+    throw new Error("OFFER_NOT_FOUND");
+  }
+
+  if (offer.status !== "accepted") {
+    throw new Error("OFFER_NOT_ACCEPTED");
+  }
+
+  const existingOrder = store.orders.find((entry) => entry.offerId === offer.id);
+  if (existingOrder) {
+    throw new Error("ORDER_ALREADY_EXISTS");
   }
 
   const product = store.products.find((entry) => entry.id === offer.productId);
   if (!product) {
-    return null;
+    throw new Error("PRODUCT_NOT_FOUND");
+  }
+
+  const orderQuantity = 20;
+  if (!Number.isFinite(product.quantity) || product.quantity < orderQuantity) {
+    throw new Error("INSUFFICIENT_STOCK_FOR_ORDER");
+  }
+
+  const trimmedAddress = input.address.trim();
+  if (!trimmedAddress) {
+    throw new Error("INVALID_DELIVERY_ADDRESS");
   }
 
   const order: OrderRecord = {
@@ -372,20 +553,100 @@ export async function createOrderFromOffer(input: {
     productId: product.id,
     buyerId: offer.buyerId,
     farmerId: offer.farmerId,
-    total: offer.offeredPrice * 20,
+    quantity: orderQuantity,
+    unit: product.unit,
+    total: offer.offeredPrice * orderQuantity,
     status: "confirmed",
     deliveryType: input.deliveryType,
     deliveryStatus: "Preparing dispatch",
-    address: input.address,
+    address: trimmedAddress,
     eta: input.deliveryType === "platform" ? "6 hours" : "12 hours",
     paymentProvider: input.paymentProvider,
     paymentStatus: "paid",
     createdAt: new Date().toISOString(),
   };
 
+  product.quantity = Number((product.quantity - orderQuantity).toFixed(2));
   store.orders.unshift(order);
   await writeStore(store);
   return order;
+}
+
+export async function createOrUpdateReview(input: {
+  orderId: string;
+  reviewerId: string;
+  rating: number;
+  feedback: string;
+}) {
+  const store = await readStore();
+  const reviewer = store.users.find((entry) => entry.id === input.reviewerId);
+
+  if (!reviewer || (reviewer.role !== "buyer" && reviewer.role !== "farmer")) {
+    throw new Error("REVIEWER_NOT_ALLOWED");
+  }
+
+  const order = store.orders.find((entry) => entry.id === input.orderId);
+  if (!order) {
+    throw new Error("ORDER_NOT_FOUND");
+  }
+
+  const revieweeId =
+    reviewer.id === order.buyerId
+      ? order.farmerId
+      : reviewer.id === order.farmerId
+        ? order.buyerId
+        : null;
+
+  if (!revieweeId) {
+    throw new Error("REVIEW_FORBIDDEN");
+  }
+
+  if (!Number.isInteger(input.rating) || input.rating < 1 || input.rating > 5) {
+    throw new Error("INVALID_REVIEW_RATING");
+  }
+
+  const feedback = input.feedback.trim();
+  if (!feedback) {
+    throw new Error("EMPTY_REVIEW_FEEDBACK");
+  }
+
+  if (feedback.length > 500) {
+    throw new Error("REVIEW_FEEDBACK_TOO_LONG");
+  }
+
+  const now = new Date().toISOString();
+  const existingReview = store.reviews.find((entry) => {
+    return entry.orderId === input.orderId && entry.reviewerId === input.reviewerId;
+  });
+
+  if (existingReview) {
+    existingReview.rating = input.rating;
+    existingReview.feedback = feedback;
+    existingReview.updatedAt = now;
+    await writeStore(store);
+    return {
+      review: existingReview,
+      mode: "updated" as const,
+    };
+  }
+
+  const review: ReviewRecord = {
+    id: randomUUID(),
+    orderId: input.orderId,
+    reviewerId: input.reviewerId,
+    revieweeId,
+    rating: input.rating,
+    feedback,
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  store.reviews.unshift(review);
+  await writeStore(store);
+  return {
+    review,
+    mode: "created" as const,
+  };
 }
 
 export async function approveFarmer(userId: string) {
@@ -393,7 +654,15 @@ export async function approveFarmer(userId: string) {
   const user = store.users.find((entry) => entry.id === userId);
 
   if (!user) {
-    return null;
+    throw new Error("USER_NOT_FOUND");
+  }
+
+  if (user.role !== "farmer") {
+    throw new Error("NOT_A_FARMER");
+  }
+
+  if (user.approved) {
+    throw new Error("FARMER_ALREADY_APPROVED");
   }
 
   user.approved = true;

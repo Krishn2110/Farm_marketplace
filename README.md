@@ -13,6 +13,8 @@ npm install
 ```bash
 MONGODB_URI=your_mongodb_connection_string
 MONGODB_DB=farm_marketplace
+SESSION_SECRET=replace_with_a_long_random_secret
+MANDI_API_KEY=your_data_gov_in_api_key
 ```
 
 3. Run the development server:
@@ -28,6 +30,13 @@ Open [http://localhost:3000](http://localhost:3000) with your browser.
 - App now stores data in MongoDB collection `store`.
 - On first run, seed data is inserted automatically if no store document exists.
 
+## Live Mandi Price Comparison
+
+- Listings page compares each direct farm listing with mandi benchmark data.
+- Live mandi data is fetched from the official Government of India data platform / AGMARKNET dataset.
+- Configure `MANDI_API_KEY` in `.env.local` to enable live fetching.
+- If the mandi API is unavailable or the key is missing, the app falls back to internal benchmark mappings for supported commodities.
+
 ## Auth Hardening
 
 - Login attempts are rate-limited (5 tries per 10 minutes per email+IP).
@@ -42,6 +51,28 @@ Open [http://localhost:3000](http://localhost:3000) with your browser.
 - Supported formats: JPG, PNG, WEBP.
 - Max 4 images per listing, max 5MB per image.
 - Images are stored under `public/uploads/listings`.
+
+## Offer Rules
+
+- Buyer offer price must be greater than 0.
+- A buyer cannot place an offer on their own listing.
+- If a pending offer already exists for the same buyer and product, it is updated.
+- Offer send is rate-limited (8 attempts per 10 minutes per buyer/product/IP).
+- Offer-thread messages are rate-limited (20 messages per 10 minutes per user/offer/IP).
+- Only the buyer, farmer, or admin can message in an offer thread.
+
+## Farmer Flow Guards
+
+- Farmer must be approved before creating listings or accepting/rejecting offers.
+- Only pending offers can be accepted or rejected.
+- Order is created only from accepted offers.
+- Duplicate order creation for the same offer is blocked.
+
+## Admin Flow Guards
+
+- Farmer approval only works for valid non-approved farmer accounts.
+- Admin approval actions are rate-limited (40 actions per 10 minutes per admin/IP).
+- Approval success/failure is audit-logged for traceability.
 
 ## Legacy Next.js template notes
 
