@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 
 import { OfferForm } from "@/app/ui/forms";
 import { getOptionalSession } from "@/lib/auth";
@@ -119,6 +120,15 @@ export default async function ListingsPage({
             className="panel panel-strong grid gap-6 lg:grid-cols-[1fr_0.85fr]"
           >
             <div>
+              <div className="relative mb-5 h-56 overflow-hidden rounded-2xl border border-stone-900/10 bg-stone-100">
+                <Image
+                  alt={listing.title}
+                  className="object-cover"
+                  fill
+                  sizes="(max-width: 1024px) 100vw, 50vw"
+                  src={listing.images[0] || "/produce-placeholder.svg"}
+                />
+              </div>
               <div className="flex flex-wrap items-center gap-3">
                 <span className="rounded-full bg-stone-900 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-stone-50">
                   {listing.category}

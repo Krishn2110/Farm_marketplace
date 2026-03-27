@@ -75,11 +75,20 @@ export type OrderRecord = {
   createdAt: string;
 };
 
+export type PasswordResetRecord = {
+  id: string;
+  userId: string;
+  tokenHash: string;
+  expiresAt: string;
+  createdAt: string;
+};
+
 export type StoreData = {
   users: UserRecord[];
   products: ProductRecord[];
   offers: OfferRecord[];
   orders: OrderRecord[];
+  passwordResets: PasswordResetRecord[];
 };
 
 export type SessionUser = {

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 
 import { getOptionalSession } from "@/lib/auth";
 import { getFeaturedProducts, getMarketplaceSnapshot } from "@/lib/market";
@@ -94,6 +95,15 @@ export default async function Home() {
         <div className="grid gap-5 lg:grid-cols-3">
           {featuredProducts.map((product) => (
             <article key={product.id} className="panel panel-product">
+              <div className="relative mb-5 h-44 overflow-hidden rounded-2xl border border-stone-900/10 bg-stone-100">
+                <Image
+                  alt={product.title}
+                  className="object-cover"
+                  fill
+                  sizes="(max-width: 1024px) 100vw, 33vw"
+                  src={product.images[0] || "/produce-placeholder.svg"}
+                />
+              </div>
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="eyebrow text-stone-500">{product.category}</p>

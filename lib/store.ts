@@ -8,6 +8,7 @@ import type {
   DeliveryType,
   OfferRecord,
   OrderRecord,
+  PasswordResetRecord,
   PaymentProvider,
   ProductRecord,
   Role,
@@ -24,6 +25,10 @@ type StoreDocument = StoreData & {
 
 function hashPassword(password: string) {
   return createHash("sha256").update(password).digest("hex");
+}
+
+function hashResetToken(token: string) {
+  return createHash("sha256").update(token).digest("hex");
 }
 
 async function getStoreCollection() {
@@ -73,6 +78,7 @@ async function readStore(): Promise<StoreData> {
     products: document.products ?? [],
     offers: document.offers ?? [],
     orders: document.orders ?? [],
+    passwordResets: document.passwordResets ?? [],
   };
 }
 
@@ -165,18 +171,43 @@ export async function createListing(input: {
   deliveryOptions: DeliveryType[];
 }) {
   const store = await readStore();
+  const farmer = store.users.find((entry) => entry.id === input.farmerId);
+  const hasValidHarvestDate = /^\d{4}-\d{2}-\d{2}$/.test(input.harvestDate);
+
+  if (!farmer || farmer.role !== "farmer") {
+    throw new Error("FARMER_NOT_FOUND");
+  }
+
+  if (!farmer.approved) {
+    throw new Error("FARMER_NOT_APPROVED");
+  }
+
+  if (
+    !input.title.trim() ||
+    !input.category.trim() ||
+    !input.location.trim() ||
+    !input.freshnessNote.trim() ||
+    !hasValidHarvestDate ||
+    !Number.isFinite(input.price) ||
+    !Number.isFinite(input.quantity) ||
+    input.price <= 0 ||
+    input.quantity <= 0
+  ) {
+    throw new Error("INVALID_LISTING_INPUT");
+  }
+
   const listing: ProductRecord = {
     id: randomUUID(),
     farmerId: input.farmerId,
-    title: input.title,
-    category: input.category,
+    title: input.title.trim(),
+    category: input.category.trim(),
     price: input.price,
     quantity: input.quantity,
-    unit: input.unit,
+    unit: input.unit.trim() || "kg",
     harvestDate: input.harvestDate,
     images: input.images,
-    location: input.location,
-    freshnessNote: input.freshnessNote,
+    location: input.location.trim(),
+    freshnessNote: input.freshnessNote.trim(),
     organic: input.organic,
     deliveryOptions: input.deliveryOptions.length
       ? input.deliveryOptions
@@ -368,4 +399,68 @@ export async function approveFarmer(userId: string) {
   user.approved = true;
   await writeStore(store);
   return user;
+}
+
+export async function createPasswordResetToken(email: string) {
+  const store = await readStore();
+  const user = store.users.find((entry) => entry.email === email);
+
+  if (!user) {
+    return null;
+  }
+
+  const now = Date.now();
+  const token = randomUUID();
+  const reset: PasswordResetRecord = {
+    id: randomUUID(),
+    userId: user.id,
+    tokenHash: hashResetToken(token),
+    createdAt: new Date(now).toISOString(),
+    expiresAt: new Date(now + 30 * 60 * 1000).toISOString(),
+  };
+
+  store.passwordResets = store.passwordResets.filter((entry) => {
+    return entry.userId !== user.id && new Date(entry.expiresAt).getTime() > now;
+  });
+  store.passwordResets.unshift(reset);
+  await writeStore(store);
+  return {
+    token,
+    userId: user.id,
+  };
+}
+
+export async function resetPasswordByToken(token: string, nextPassword: string) {
+  const store = await readStore();
+  const now = Date.now();
+  const hashedToken = hashResetToken(token);
+  const resetRequest = store.passwordResets.find((entry) => {
+    return (
+      entry.tokenHash === hashedToken && new Date(entry.expiresAt).getTime() > now
+    );
+  });
+
+  if (!resetRequest) {
+    store.passwordResets = store.passwordResets.filter(
+      (entry) => new Date(entry.expiresAt).getTime() > now,
+    );
+    await writeStore(store);
+    return false;
+  }
+
+  const user = store.users.find((entry) => entry.id === resetRequest.userId);
+  if (!user) {
+    store.passwordResets = store.passwordResets.filter(
+      (entry) => entry.id !== resetRequest.id,
+    );
+    await writeStore(store);
+    return false;
+  }
+
+  user.passwordHash = hashPassword(nextPassword);
+  store.passwordResets = store.passwordResets.filter(
+    (entry) => entry.userId !== user.id,
+  );
+  await writeStore(store);
+  return true;
 }
