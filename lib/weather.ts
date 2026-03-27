@@ -23,8 +23,18 @@ export const getWeather = async (city: string): Promise<Weather> => {
       temp: res.data.main.temp,
       rainfall: res.data.rain?.["1h"] || 0,
     };
-  } catch (error: any) {
-    console.error("Weather Error:", error.response?.data || error.message);
+  } catch (error: unknown) {
+    let message = "Unknown weather error";
+
+    if (typeof error === "object" && error !== null) {
+      const maybeError = error as {
+        message?: string;
+        response?: { data?: unknown };
+      };
+      message = String(maybeError.response?.data ?? maybeError.message ?? message);
+    }
+
+    console.error("Weather Error:", message);
 
     return { temp: 25, rainfall: 0 };
   }

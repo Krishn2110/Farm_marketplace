@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 import {
   AdminApprovalForm,
   FarmerListingForm,
@@ -27,6 +29,10 @@ import {
   ArrowRight,
   AlertCircle,
 } from "lucide-react";
+
+function isUploadedListingImage(src: string) {
+  return src.startsWith("/uploads/listings/");
+}
 
 export default async function DashboardPage() {
   const session = await ensureSession();
@@ -141,6 +147,63 @@ export default async function DashboardPage() {
                   <FarmerListingForm location={dashboard.user.location} />
                 </div>
               </div>
+<<<<<<< HEAD
+=======
+            ) : (
+              dashboard.myProducts.map((product) => (
+                <article
+                  key={product.id}
+                  className="rounded-2xl border border-stone-900/10 bg-white px-5 py-5"
+                >
+                  <div className="relative mb-5 h-44 overflow-hidden rounded-2xl border border-stone-900/10 bg-stone-100">
+                    <Image
+                      alt={product.title}
+                      className="object-cover"
+                      fill
+                      sizes="(max-width: 1280px) 100vw, 33vw"
+                      src={product.images[0] || "/produce-placeholder.svg"}
+                      unoptimized={isUploadedListingImage(
+                        product.images[0] || "/produce-placeholder.svg",
+                      )}
+                    />
+                  </div>
+                  <p className="text-xs uppercase tracking-[0.24em] text-stone-500">
+                    {product.category}
+                  </p>
+                  <h3 className="mt-2 text-xl font-semibold text-stone-950">
+                    {product.title}
+                  </h3>
+                  <p className="mt-3 text-sm leading-7 text-stone-600">
+                    {product.location}
+                  </p>
+                  <p className="mt-2 text-sm leading-7 text-stone-600">
+                    Harvested on {product.harvestDate}
+                  </p>
+                  <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-2xl bg-stone-50 px-4 py-4">
+                      <p className="text-xs uppercase tracking-[0.2em] text-stone-500">
+                        Price
+                      </p>
+                      <p className="mt-2 text-lg font-semibold text-stone-950">
+                        Rs. {product.price}/{product.unit}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl bg-stone-50 px-4 py-4">
+                      <p className="text-xs uppercase tracking-[0.2em] text-stone-500">
+                        Stock
+                      </p>
+                      <p className="mt-2 text-lg font-semibold text-stone-950">
+                        {product.quantity}
+                        {product.unit}
+                      </p>
+                    </div>
+                  </div>
+                  <p className="mt-5 rounded-2xl border border-emerald-900/10 bg-emerald-50 px-4 py-4 text-sm leading-7 text-emerald-950">
+                    {product.freshnessNote}
+                  </p>
+                </article>
+              ))
+>>>>>>> c6b4eb1 (updated project)
             )}
 
             {/* Non-Farmer: Marketplace Signals */}

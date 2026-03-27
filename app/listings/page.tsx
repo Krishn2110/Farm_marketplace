@@ -38,6 +38,10 @@ function readFilterValue(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] ?? "" : value ?? "";
 }
 
+function isUploadedListingImage(src: string) {
+  return src.startsWith("/uploads/listings/");
+}
+
 export default async function ListingsPage({
   searchParams,
 }: {
@@ -69,6 +73,7 @@ export default async function ListingsPage({
         <div className="mb-12">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
+<<<<<<< HEAD
               <div className="inline-flex items-center gap-2 rounded-full bg-emerald-100 px-4 py-2 text-sm font-semibold text-emerald-700 mb-4">
                 <TrendingUp className="h-4 w-4" />
                 Buyer Sourcing Board
@@ -81,6 +86,136 @@ export default async function ListingsPage({
                 Filter by category, location, and target price to find the best-fit
                 suppliers. Farmers publish freshness notes, stock levels, and
                 delivery options right on each listing.
+=======
+              <div className="relative mb-5 h-56 overflow-hidden rounded-2xl border border-stone-900/10 bg-stone-100">
+                <Image
+                  alt={listing.title}
+                  className="object-cover"
+                  fill
+                  sizes="(max-width: 1024px) 100vw, 50vw"
+                  src={listing.images[0] || "/produce-placeholder.svg"}
+                  unoptimized={isUploadedListingImage(
+                    listing.images[0] || "/produce-placeholder.svg",
+                  )}
+                />
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="rounded-full bg-stone-900 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-stone-50">
+                  {listing.category}
+                </span>
+                {listing.organic ? (
+                  <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-900">
+                    Organic tagged
+                  </span>
+                ) : null}
+                <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-900">
+                  Sustainability {listing.sustainabilityScore}/100
+                </span>
+                <span className="rounded-full bg-stone-100 px-3 py-1 text-xs font-semibold text-stone-700">
+                  {listing.mandiComparison.comparisonLabel}
+                </span>
+              </div>
+              <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <h2 className="text-3xl font-semibold tracking-tight text-stone-950">
+                    {listing.title}
+                  </h2>
+                  <p className="mt-2 text-sm leading-7 text-stone-600">
+                    Supplied by {listing.farmerName} | {listing.location}
+                  </p>
+                  <p className="text-sm leading-7 text-stone-600">
+                    Rating {listing.farmerRating}/5
+                    {listing.farmerReviewCount > 0
+                      ? ` from ${listing.farmerReviewCount} review${listing.farmerReviewCount === 1 ? "" : "s"}`
+                      : " | awaiting first review"}
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-stone-900/10 bg-white px-4 py-3 text-right">
+                  <p className="text-xs uppercase tracking-[0.24em] text-stone-500">
+                    Market guidance
+                  </p>
+                  <p className="mt-1 text-2xl font-semibold text-stone-950">
+                    Rs. {listing.suggestedPrice}/{listing.unit}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <div className="rounded-2xl border border-stone-900/10 bg-white px-4 py-4">
+                  <p className="text-xs uppercase tracking-[0.24em] text-stone-500">
+                    Available stock
+                  </p>
+                  <p className="mt-2 text-xl font-semibold text-stone-950">
+                    Only {listing.quantity}
+                    {listing.unit} left
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-stone-900/10 bg-white px-4 py-4">
+                  <p className="text-xs uppercase tracking-[0.24em] text-stone-500">
+                    App price / kg
+                  </p>
+                  <p className="mt-2 text-xl font-semibold text-stone-950">
+                    Rs. {listing.mandiComparison.appPricePerKg}/kg
+                  </p>
+                  <p className="mt-2 text-xs leading-6 text-stone-500">
+                    Listing price: Rs. {listing.price}/{listing.unit}
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-stone-900/10 bg-white px-4 py-4">
+                  <p className="text-xs uppercase tracking-[0.24em] text-stone-500">
+                    Mandi price / kg
+                  </p>
+                  <p className="mt-2 text-xl font-semibold text-stone-950">
+                    Rs. {listing.mandiComparison.mandiPricePerKg || "--"}/kg
+                  </p>
+                  <p className="mt-2 text-xs leading-6 text-stone-500">
+                    {listing.mandiComparison.marketName}, {listing.mandiComparison.district}
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-stone-900/10 bg-white px-4 py-4">
+                  <p className="text-xs uppercase tracking-[0.24em] text-stone-500">
+                    Buyer app benefit
+                  </p>
+                  <p
+                    className={`mt-2 text-xl font-semibold ${
+                      listing.mandiComparison.buyerSavingsPerKg > 0
+                        ? "text-emerald-700"
+                        : listing.mandiComparison.buyerSavingsPerKg < 0
+                          ? "text-amber-700"
+                          : "text-stone-950"
+                    }`}
+                  >
+                    {listing.mandiComparison.buyerSavingsPerKg > 0 ? "+" : ""}
+                    {listing.mandiComparison.buyerSavingsPerKg} Rs./kg
+                  </p>
+                  <p className="mt-2 text-xs leading-6 text-stone-500">
+                    {listing.mandiComparison.buyerBenefitLabel} |{" "}
+                    {listing.mandiComparison.arrivalDate}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-6 grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+                <p className="rounded-2xl border border-emerald-900/10 bg-emerald-50 px-4 py-4 text-sm leading-7 text-emerald-950">
+                  {listing.mandiComparison.insight}
+                </p>
+                <div className="rounded-2xl border border-stone-900/10 bg-white px-4 py-4 text-sm leading-7 text-stone-700">
+                  <p className="font-semibold text-stone-950">Per kg mandi range</p>
+                  <p className="mt-2">
+                    Rs. {listing.mandiComparison.mandiMinPerKg} to Rs.{" "}
+                    {listing.mandiComparison.mandiMaxPerKg}/kg
+                  </p>
+                  <p className="mt-2 text-stone-500">
+                    Based on {listing.mandiComparison.commodityQuery} benchmarks from{" "}
+                    {listing.mandiComparison.state}.
+                  </p>
+                </div>
+              </div>
+
+              <p className="mt-6 rounded-2xl border border-stone-900/10 bg-stone-50 px-4 py-4 text-sm leading-7 text-stone-700">
+                {listing.freshnessNote}. Nearby buyers see this supplier earlier because
+                the location score is high for {listing.location}.
+>>>>>>> c6b4eb1 (updated project)
               </p>
             </div>
             <div className="flex-shrink-0">
@@ -125,6 +260,7 @@ export default async function ListingsPage({
                   <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
                 </div>
               </div>
+<<<<<<< HEAD
               
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2" htmlFor="location">
@@ -146,6 +282,25 @@ export default async function ListingsPage({
                   </select>
                   <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
                 </div>
+=======
+              <p className="mt-4 text-sm leading-7 text-stone-300">
+                Start with your target landed price and use the mandi benchmark to
+                justify your first offer with real local-market context.
+              </p>
+              <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 px-4 py-4 text-sm leading-7 text-stone-200">
+                <p className="font-semibold text-white">Negotiation anchor</p>
+                <p className="mt-2">
+                  Mandi is Rs. {listing.mandiComparison.mandiPricePerKg || "--"}/kg and
+                  this app listing is Rs. {listing.mandiComparison.appPricePerKg}/kg.
+                </p>
+                <p className="mt-2 text-stone-300">
+                  {listing.mandiComparison.buyerSavingsPerKg > 0
+                    ? `Buyer is saving Rs. ${listing.mandiComparison.buyerSavingsPerKg}/kg on the app.`
+                    : listing.mandiComparison.buyerSavingsPerKg < 0
+                      ? `Buyer is paying Rs. ${Math.abs(listing.mandiComparison.buyerSavingsPerKg)}/kg extra on the app.`
+                      : "Buyer price is matching the mandi benchmark."}
+                </p>
+>>>>>>> c6b4eb1 (updated project)
               </div>
               
               <div>

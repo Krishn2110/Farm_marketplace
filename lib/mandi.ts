@@ -22,11 +22,19 @@ export type ListingMandiComparison = {
   district: string;
   state: string;
   arrivalDate: string;
+  priceBasisLabel: string;
+  appPricePerKg: number;
+  mandiPricePerKg: number;
+  mandiMinPerKg: number;
+  mandiMaxPerKg: number;
   modalPrice: number;
   minPrice: number;
   maxPrice: number;
   priceGap: number;
   priceGapPercent: number;
+  buyerSavingsPerKg: number;
+  buyerSavingsPercent: number;
+  buyerBenefitLabel: string;
   insight: string;
 };
 
@@ -155,6 +163,32 @@ function pickClosestMarket(records: MandiMarketRecord[], location: string) {
   );
 }
 
+function normalizePricePerKg(price: number, unit: string) {
+  const normalizedUnit = unit.trim().toLowerCase();
+
+  if (!price || price <= 0) {
+    return 0;
+  }
+
+  if (normalizedUnit === "kg" || normalizedUnit === "kilogram") {
+    return price;
+  }
+
+  if (
+    normalizedUnit === "quintal" ||
+    normalizedUnit === "qtl" ||
+    normalizedUnit === "qtl."
+  ) {
+    return price / 100;
+  }
+
+  if (normalizedUnit === "g" || normalizedUnit === "gram" || normalizedUnit === "grams") {
+    return price * 1000;
+  }
+
+  return price;
+}
+
 function buildComparison(
   record: MandiMarketRecord | null,
   productPrice: number,
@@ -164,9 +198,24 @@ function buildComparison(
 ): ListingMandiComparison {
   const livePrice = record?.modalPrice && record.modalPrice > 0 ? record.modalPrice : 0;
   const comparisonPrice = livePrice || fallbackPrice || 0;
-  const priceGap = Number((productPrice - comparisonPrice).toFixed(2));
+  const appPricePerKg = normalizePricePerKg(productPrice, unit);
+  const mandiPricePerKg = livePrice
+    ? Number((livePrice / 100).toFixed(2))
+    : Number((fallbackPrice || 0).toFixed(2));
+  const mandiMinPerKg = record?.minPrice
+    ? Number((record.minPrice / 100).toFixed(2))
+    : mandiPricePerKg;
+  const mandiMaxPerKg = record?.maxPrice
+    ? Number((record.maxPrice / 100).toFixed(2))
+    : mandiPricePerKg;
+  const priceGap = Number((appPricePerKg - mandiPricePerKg).toFixed(2));
   const priceGapPercent =
-    comparisonPrice > 0 ? Number(((priceGap / comparisonPrice) * 100).toFixed(1)) : 0;
+    mandiPricePerKg > 0 ? Number(((priceGap / mandiPricePerKg) * 100).toFixed(1)) : 0;
+  const buyerSavingsPerKg = Number((mandiPricePerKg - appPricePerKg).toFixed(2));
+  const buyerSavingsPercent =
+    mandiPricePerKg > 0
+      ? Number(((buyerSavingsPerKg / mandiPricePerKg) * 100).toFixed(1))
+      : 0;
   const direction =
     priceGap < 0 ? "below" : priceGap > 0 ? "above" : "in line with";
 
@@ -180,12 +229,18 @@ function buildComparison(
   const district = record?.district || "Local district";
   const state = record?.state || "India";
   const arrivalDate = record?.arrivalDate || "Recent benchmark";
+  const buyerBenefitLabel =
+    buyerSavingsPerKg > 0
+      ? "Buyer is saving on the app"
+      : buyerSavingsPerKg < 0
+        ? "App price is above mandi"
+        : "App price matches mandi";
 
-  let insight = `Direct farm price is ${direction} mandi modal price by Rs. ${Math.abs(priceGap)}/${unit}.`;
+  let insight = `Direct farm price is ${direction} local mandi benchmark by Rs. ${Math.abs(priceGap)}/kg.`;
   if (priceGap < 0) {
-    insight = `Buyer saves around Rs. ${Math.abs(priceGap)}/${unit} compared with the local mandi benchmark.`;
+    insight = `Buyer saves around Rs. ${Math.abs(priceGap)}/kg on the app compared with local mandi pricing.`;
   } else if (priceGap > 0) {
-    insight = `Premium of Rs. ${priceGap}/${unit} likely reflects freshness, direct delivery, or reduced handling.`;
+    insight = `App listing is Rs. ${priceGap}/kg above mandi, which may reflect freshness, delivery, or direct farm quality.`;
   }
 
   return {
@@ -201,11 +256,19 @@ function buildComparison(
     district,
     state,
     arrivalDate,
+    priceBasisLabel: "Per kg comparison",
+    appPricePerKg,
+    mandiPricePerKg,
+    mandiMinPerKg,
+    mandiMaxPerKg,
     modalPrice: comparisonPrice,
     minPrice: record?.minPrice || comparisonPrice,
     maxPrice: record?.maxPrice || comparisonPrice,
     priceGap,
     priceGapPercent,
+    buyerSavingsPerKg,
+    buyerSavingsPercent,
+    buyerBenefitLabel,
     insight,
   };
 }

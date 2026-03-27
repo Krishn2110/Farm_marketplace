@@ -77,6 +77,10 @@ const stats = [
   },
 ];
 
+function isUploadedListingImage(src: string) {
+  return src.startsWith("/uploads/listings/");
+}
+
 export default async function Home() {
   const [snapshot, featuredProducts, session] = await Promise.all([
     getMarketplaceSnapshot(),
@@ -347,6 +351,9 @@ export default async function Home() {
                   alt={product.title}
                   fill
                   className="object-cover transition-transform duration-700 hover:scale-105"
+                  unoptimized={isUploadedListingImage(
+                    product.images[0] || "/produce-placeholder.svg",
+                  )}
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-transparent" />
                 <div className="absolute right-4 top-4 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-emerald-800">
