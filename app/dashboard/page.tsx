@@ -322,7 +322,6 @@ export default async function DashboardPage() {
                               href={`/dashboard/offers/${offer.id}`}
                             >
                               Open thread
-                              <ArrowRight className="h-4 w-4" />
                             </LoadingLink>
                           </div>
 

@@ -1,40 +1,47 @@
-import "server-only";
-import { MongoClient, ServerApiVersion } from "mongodb";
+type MongoModule = typeof import("mongodb");
+type MongoClientInstance = import("mongodb").MongoClient;
 
 const uri = process.env.MONGODB_URI;
-
-if (!uri) {
-  throw new Error("Missing MONGODB_URI environment variable.");
-}
-
-const options = {
-  serverApi: {
-    version: ServerApiVersion.v1,
-    strict: true,
-    deprecationErrors: true,
-  },
-};
-
-declare global {
-  var _mongoClientPromise: Promise<MongoClient> | undefined;
-}
-
-const client = new MongoClient(uri, options);
-const clientPromise = global._mongoClientPromise ?? client.connect();
-
-if (!global._mongoClientPromise) {
-  global._mongoClientPromise = clientPromise;
-}
-
 const databaseName = process.env.MONGODB_DB || "farm_marketplace";
 
+declare global {
+  var _mongoClientPromise: Promise<MongoClientInstance> | undefined;
+}
+
+async function getMongoModule(): Promise<MongoModule> {
+  return import("mongodb");
+}
+
+async function getClientPromise() {
+  if (typeof window !== "undefined") {
+    throw new Error("MongoDB can only be used on the server");
+  }
+
+  if (!uri) {
+    throw new Error("Missing MONGODB_URI environment variable.");
+  }
+
+  if (!global._mongoClientPromise) {
+    const { MongoClient, ServerApiVersion } = await getMongoModule();
+    const client = new MongoClient(uri, {
+      serverApi: {
+        version: ServerApiVersion.v1,
+        strict: true,
+        deprecationErrors: true,
+      },
+    });
+    global._mongoClientPromise = client.connect();
+  }
+
+  return global._mongoClientPromise;
+}
+
 export async function getDatabase() {
-  const connectedClient = await clientPromise;
+  const connectedClient = await getClientPromise();
   const db = connectedClient.db(databaseName);
 
-  // ✅ Only log once (optional)
   if (process.env.NODE_ENV === "development") {
-    console.log("✅ MongoDB Connected");
+    console.log("MongoDB Connected");
   }
 
   return db;

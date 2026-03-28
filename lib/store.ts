@@ -1,8 +1,3 @@
-import "server-only";
-
-import { createHash, randomUUID } from "node:crypto";
-
-import { getDatabase } from "@/lib/mongodb";
 import { seedData } from "@/lib/seed-data";
 import type {
   DeliveryType,
@@ -24,15 +19,26 @@ type StoreDocument = StoreData & {
   key: string;
 };
 
-function hashPassword(password: string) {
+async function getNodeCrypto() {
+  return import("node:crypto");
+}
+
+async function getDatabaseApi() {
+  return import("@/lib/mongodb");
+}
+
+async function hashPassword(password: string) {
+  const { createHash } = await getNodeCrypto();
   return createHash("sha256").update(password).digest("hex");
 }
 
-function hashResetToken(token: string) {
+async function hashResetToken(token: string) {
+  const { createHash } = await getNodeCrypto();
   return createHash("sha256").update(token).digest("hex");
 }
 
 async function getStoreCollection() {
+  const { getDatabase } = await getDatabaseApi();
   const database = await getDatabase();
   return database.collection<StoreDocument>(collectionName);
 }
@@ -104,7 +110,7 @@ export async function verifyCredentials(email: string, password: string) {
     return null;
   }
 
-  return user.passwordHash === hashPassword(password) ? user : null;
+  return user.passwordHash === (await hashPassword(password)) ? user : null;
 }
 
 export async function createUser(input: {
@@ -118,11 +124,12 @@ export async function createUser(input: {
   languages: string[];
 }) {
   const store = await readStore();
+  const { randomUUID } = await getNodeCrypto();
   const user: UserRecord = {
     id: randomUUID(),
     name: input.name,
     email: input.email,
-    passwordHash: hashPassword(input.password),
+    passwordHash: await hashPassword(input.password),
     role: input.role,
     location: input.location,
     farmType: input.farmType || undefined,
@@ -173,6 +180,7 @@ export async function createListing(input: {
   deliveryOptions: DeliveryType[];
 }) {
   const store = await readStore();
+  const { randomUUID } = await getNodeCrypto();
   const farmer = store.users.find((entry) => entry.id === input.farmerId);
   const hasValidHarvestDate = /^\d{4}-\d{2}-\d{2}$/.test(input.harvestDate);
 
@@ -272,6 +280,7 @@ export async function createOffer(input: {
   message: string;
 }) {
   const store = await readStore();
+  const { randomUUID } = await getNodeCrypto();
   const buyer = store.users.find((entry) => entry.id === input.buyerId);
   const product = store.products.find((entry) => entry.id === input.productId);
   const farmer = store.users.find((entry) => entry.id === input.farmerId);
@@ -381,6 +390,7 @@ export async function addMessageToOffer(
   text: string,
 ) {
   const store = await readStore();
+  const { randomUUID } = await getNodeCrypto();
   const offer = store.offers.find((entry) => entry.id === offerId);
 
   if (!offer) {
@@ -428,6 +438,7 @@ export async function addMessageToOffer(
 
 export async function acceptOffer(offerId: string, farmerId: string) {
   const store = await readStore();
+  const { randomUUID } = await getNodeCrypto();
   const farmer = store.users.find((entry) => entry.id === farmerId);
 
   if (!farmer || farmer.role !== "farmer") {
@@ -470,6 +481,7 @@ export async function acceptOffer(offerId: string, farmerId: string) {
 
 export async function rejectOffer(offerId: string, farmerId: string) {
   const store = await readStore();
+  const { randomUUID } = await getNodeCrypto();
   const farmer = store.users.find((entry) => entry.id === farmerId);
 
   if (!farmer || farmer.role !== "farmer") {
@@ -517,6 +529,7 @@ export async function createOrderFromOffer(input: {
   paymentProvider: PaymentProvider;
 }) {
   const store = await readStore();
+  const { randomUUID } = await getNodeCrypto();
   const offer = store.offers.find((entry) => entry.id === input.offerId);
 
   if (!offer) {
@@ -579,6 +592,7 @@ export async function createOrUpdateReview(input: {
   feedback: string;
 }) {
   const store = await readStore();
+  const { randomUUID } = await getNodeCrypto();
   const reviewer = store.users.find((entry) => entry.id === input.reviewerId);
 
   if (!reviewer || (reviewer.role !== "buyer" && reviewer.role !== "farmer")) {
@@ -672,6 +686,7 @@ export async function approveFarmer(userId: string) {
 
 export async function createPasswordResetToken(email: string) {
   const store = await readStore();
+  const { randomUUID } = await getNodeCrypto();
   const user = store.users.find((entry) => entry.email === email);
 
   if (!user) {
@@ -683,7 +698,7 @@ export async function createPasswordResetToken(email: string) {
   const reset: PasswordResetRecord = {
     id: randomUUID(),
     userId: user.id,
-    tokenHash: hashResetToken(token),
+    tokenHash: await hashResetToken(token),
     createdAt: new Date(now).toISOString(),
     expiresAt: new Date(now + 30 * 60 * 1000).toISOString(),
   };
@@ -702,7 +717,7 @@ export async function createPasswordResetToken(email: string) {
 export async function resetPasswordByToken(token: string, nextPassword: string) {
   const store = await readStore();
   const now = Date.now();
-  const hashedToken = hashResetToken(token);
+  const hashedToken = await hashResetToken(token);
   const resetRequest = store.passwordResets.find((entry) => {
     return (
       entry.tokenHash === hashedToken && new Date(entry.expiresAt).getTime() > now
@@ -726,7 +741,7 @@ export async function resetPasswordByToken(token: string, nextPassword: string) 
     return false;
   }
 
-  user.passwordHash = hashPassword(nextPassword);
+  user.passwordHash = await hashPassword(nextPassword);
   store.passwordResets = store.passwordResets.filter(
     (entry) => entry.userId !== user.id,
   );
