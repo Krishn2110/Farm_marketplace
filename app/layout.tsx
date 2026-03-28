@@ -68,6 +68,12 @@ async function Header() {
               >
                 Marketplace
               </LoadingLink>
+              <LoadingLink 
+                className="flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-stone-600 transition-all hover:bg-stone-100 hover:text-stone-900" 
+                href="/market-data"
+              >
+                Market Data
+              </LoadingLink>
             </div>
 
             {session ? (
@@ -153,7 +159,7 @@ function Footer() {
               <ul className="space-y-3">
                 <li><LoadingLink className="text-sm text-stone-600 transition-colors hover:text-emerald-600" href="/listings">Marketplace</LoadingLink></li>
                 <li><LoadingLink className="text-sm text-stone-600 transition-colors hover:text-emerald-600" href="/logistics">Logistics</LoadingLink></li>
-                <li><LoadingLink className="text-sm text-stone-600 transition-colors hover:text-emerald-600" href="/data">Market Insights</LoadingLink></li>
+                <li><LoadingLink className="text-sm text-stone-600 transition-colors hover:text-emerald-600" href="/market-data">Market Data</LoadingLink></li>
               </ul>
             </div>
             <div className="space-y-4">

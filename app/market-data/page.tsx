@@ -1,4 +1,15 @@
 import Link from "next/link";
+import {
+  ArrowUpRight,
+  BarChart3,
+  Calendar,
+  LineChart,
+  MapPin,
+  Package,
+  Sparkles,
+  TrendingDown,
+  TrendingUp,
+} from "lucide-react";
 
 import {
   getCedaCommodities,
@@ -6,6 +17,7 @@ import {
   getCedaQuantities,
   getCedaStates,
 } from "@/lib/ceda";
+import { getLivePricePrediction } from "@/lib/price-prediction";
 
 type SearchParams = Promise<{
   commodity?: string | string[];
@@ -16,6 +28,12 @@ type SearchParams = Promise<{
 type DateWindow = {
   startDate: string;
   endDate: string;
+};
+
+type ChartPoint = {
+  label: string;
+  value: number;
+  tone: "ceda" | "current" | "predicted";
 };
 
 function readParam(value: string | string[] | undefined, fallback: string) {
@@ -75,6 +93,82 @@ function getCandidateDateWindows(range: string) {
   ];
 }
 
+function buildPredictionChart(input: {
+  cedaModal?: number;
+  currentPrice?: number;
+  predictedPrice?: number;
+}) {
+  const points: ChartPoint[] = [];
+
+  if (typeof input.cedaModal === "number") {
+    points.push({
+      label: "CEDA modal",
+      value: input.cedaModal,
+      tone: "ceda",
+    });
+  }
+
+  if (typeof input.currentPrice === "number") {
+    points.push({
+      label: "Live current",
+      value: input.currentPrice,
+      tone: "current",
+    });
+  }
+
+  if (typeof input.predictedPrice === "number") {
+    points.push({
+      label: "Predicted next",
+      value: input.predictedPrice,
+      tone: "predicted",
+    });
+  }
+
+  if (points.length < 2) {
+    return null;
+  }
+
+  const width = 640;
+  const height = 260;
+  const left = 54;
+  const right = 24;
+  const top = 24;
+  const bottom = 44;
+  const max = Math.max(...points.map((point) => point.value));
+  const min = Math.min(...points.map((point) => point.value));
+  const spread = max - min || 1;
+  const step = points.length === 1 ? 0 : (width - left - right) / (points.length - 1);
+
+  const plotted = points.map((point, index) => {
+    const x = left + step * index;
+    const y =
+      top + ((max - point.value) / spread) * (height - top - bottom);
+
+    return {
+      ...point,
+      x,
+      y,
+    };
+  });
+
+  const polyline = plotted.map((point) => `${point.x},${point.y}`).join(" ");
+  const area = `${left},${height - bottom} ${polyline} ${plotted[plotted.length - 1]?.x},${height - bottom}`;
+
+  return {
+    points: plotted,
+    polyline,
+    area,
+    width,
+    height,
+    left,
+    right,
+    top,
+    bottom,
+    max,
+    min,
+  };
+}
+
 async function loadMarketData(input: {
   commodityId: number;
   stateId: number;
@@ -111,12 +205,10 @@ async function loadMarketData(input: {
     }
   }
 
-  const fallbackWindow = windows[0];
-
   return {
     prices: [],
     quantities: [],
-    resolvedWindow: fallbackWindow,
+    resolvedWindow: windows[0],
   };
 }
 
@@ -134,11 +226,6 @@ export default async function MarketDataPage({
   );
   const selectedStateId = Number(readParam(params.state, "0"));
   const range = readParam(params.range, "90d");
-  const { prices, quantities, resolvedWindow } = await loadMarketData({
-    commodityId: selectedCommodityId,
-    stateId: selectedStateId,
-    range,
-  });
 
   const selectedCommodity = commodities.find(
     (item) => item.commodity_id === selectedCommodityId,
@@ -146,8 +233,31 @@ export default async function MarketDataPage({
   const selectedState = states.find(
     (item) => item.census_state_id === selectedStateId,
   );
+
+  const [{ prices, quantities, resolvedWindow }, prediction] = await Promise.all([
+    loadMarketData({
+      commodityId: selectedCommodityId,
+      stateId: selectedStateId,
+      range,
+    }),
+    getLivePricePrediction({
+      commodity: selectedCommodity?.commodity_disp_name,
+      state: selectedState?.census_state_name,
+    }),
+  ]);
+
   const latestPrice = sortLatestFirst(prices)[0];
   const latestQuantity = sortLatestFirst(quantities)[0];
+  const predictionChart =
+    prediction.status === "ready"
+      ? buildPredictionChart({
+          cedaModal: latestPrice?.p_modal,
+          currentPrice: prediction.data.current_price,
+          predictedPrice: prediction.data.predicted_price,
+        })
+      : null;
+
+  const isRising = prediction.status === "ready" && prediction.trend === "up";
 
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-6 py-10 sm:px-10 lg:px-12">
@@ -156,12 +266,11 @@ export default async function MarketDataPage({
         <div className="mt-3 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <h1 className="text-4xl font-semibold tracking-tight text-stone-950">
-              Commodity list and market prices
+              Commodity list, live prediction, and market prices
             </h1>
             <p className="mt-3 max-w-3xl text-sm leading-7 text-stone-600">
-              This page uses CEDA Agri Market data. Commodity and state lists are
-              loaded from the official public endpoints, and protected price and
-              quantity data are requested server-side with your CEDA API key.
+              Selected commodity now shows official CEDA market data plus your live
+              price prediction API so rising-price opportunities become easy to spot.
             </p>
           </div>
           <Link className="btn-secondary" href="/">
@@ -254,16 +363,22 @@ export default async function MarketDataPage({
 
         <div className="grid gap-6">
           <section className="panel panel-strong">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div>
                 <p className="eyebrow text-stone-500">Selected market</p>
                 <h2 className="mt-2 text-3xl font-semibold text-stone-950">
                   {selectedCommodity?.commodity_disp_name ?? "Commodity"}
                 </h2>
-                <p className="mt-2 text-sm text-stone-600">
-                  {selectedState?.census_state_name ?? "All India"} •{" "}
-                  {resolvedWindow.startDate} to {resolvedWindow.endDate}
-                </p>
+                <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-stone-600">
+                  <span className="inline-flex items-center gap-2">
+                    <MapPin className="h-4 w-4 text-emerald-700" />
+                    {selectedState?.census_state_name ?? "All India"}
+                  </span>
+                  <span className="inline-flex items-center gap-2">
+                    <Calendar className="h-4 w-4 text-emerald-700" />
+                    {resolvedWindow.startDate} to {resolvedWindow.endDate}
+                  </span>
+                </div>
               </div>
               <div className="rounded-2xl border border-emerald-900/10 bg-emerald-50 px-4 py-3 text-sm text-emerald-950">
                 {prices.length} price points • {quantities.length} quantity points
@@ -273,6 +388,211 @@ export default async function MarketDataPage({
               If CEDA has no data for the newest requested window, the page
               automatically falls back to the latest earlier window with data.
             </p>
+          </section>
+
+          <section className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
+            <div className="panel panel-strong overflow-hidden">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="eyebrow text-stone-500">Live prediction</p>
+                  <h3 className="mt-2 text-2xl font-semibold text-stone-950">
+                    Forecast vs current price
+                  </h3>
+                </div>
+                <div
+                  className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                    isRising
+                      ? "bg-emerald-100 text-emerald-800"
+                      : prediction.status === "ready" && prediction.trend === "down"
+                        ? "bg-amber-100 text-amber-800"
+                        : "bg-stone-100 text-stone-700"
+                  }`}
+                >
+                  {isRising
+                    ? "Price may rise"
+                    : prediction.status === "ready" && prediction.trend === "down"
+                      ? "Price may soften"
+                      : "Watchlist"}
+                </div>
+              </div>
+
+              {prediction.status === "ready" ? (
+                <>
+                  <div className="mt-6 grid gap-4 md:grid-cols-3">
+                    <div className="rounded-2xl border border-stone-900/8 bg-white px-4 py-4">
+                      <p className="eyebrow text-stone-500">Current live</p>
+                      <p className="mt-2 text-3xl font-semibold text-stone-950">
+                        Rs. {formatNumber(prediction.data.current_price)}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl border border-stone-900/8 bg-white px-4 py-4">
+                      <p className="eyebrow text-stone-500">Predicted next</p>
+                      <p className="mt-2 text-3xl font-semibold text-stone-950">
+                        Rs. {formatNumber(prediction.data.predicted_price)}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl border border-stone-900/8 bg-white px-4 py-4">
+                      <p className="eyebrow text-stone-500">Arrival</p>
+                      <p className="mt-2 text-3xl font-semibold text-stone-950">
+                        {formatNumber(prediction.data.arrival)}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div
+                    className={`mt-5 rounded-3xl border px-5 py-5 ${
+                      isRising
+                        ? "border-emerald-200 bg-[linear-gradient(135deg,#ecfdf5_0%,#f7fee7_100%)]"
+                        : prediction.trend === "down"
+                          ? "border-amber-200 bg-[linear-gradient(135deg,#fffbeb_0%,#fff7ed_100%)]"
+                          : "border-stone-200 bg-stone-50"
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div
+                        className={`mt-1 rounded-full p-2 ${
+                          isRising
+                            ? "bg-emerald-600 text-white"
+                            : prediction.trend === "down"
+                              ? "bg-amber-500 text-white"
+                              : "bg-stone-300 text-stone-800"
+                        }`}
+                      >
+                        {isRising ? (
+                          <TrendingUp className="h-4 w-4" />
+                        ) : prediction.trend === "down" ? (
+                          <TrendingDown className="h-4 w-4" />
+                        ) : (
+                          <Sparkles className="h-4 w-4" />
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-lg font-semibold text-stone-950">
+                          {isRising
+                            ? "Rising price signal detected"
+                            : prediction.trend === "down"
+                              ? "Predicted price is slightly lower"
+                              : "Predicted price is nearly flat"}
+                        </p>
+                        <p className="mt-2 text-sm leading-7 text-stone-700">
+                          {selectedCommodity?.commodity_disp_name} in{" "}
+                          {prediction.data.state} is moving from Rs.{" "}
+                          {formatNumber(prediction.data.current_price)} to Rs.{" "}
+                          {formatNumber(prediction.data.predicted_price)}.
+                          {" "}
+                          {isRising
+                            ? `That is an expected increase of Rs. ${formatNumber(
+                                prediction.change,
+                              )} (${formatNumber(prediction.changePercent)}%).`
+                            : prediction.trend === "down"
+                              ? `That is a projected drop of Rs. ${formatNumber(
+                                  Math.abs(prediction.change),
+                                )} (${formatNumber(Math.abs(prediction.changePercent))}%).`
+                              : "The API is signaling a stable near-term market."}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="mt-6 rounded-2xl border border-dashed border-stone-300 bg-stone-50 px-5 py-6 text-sm leading-7 text-stone-600">
+                  {prediction.message}
+                </div>
+              )}
+            </div>
+
+            <div className="panel panel-strong">
+              <div className="flex items-center gap-2">
+                <LineChart className="h-5 w-5 text-emerald-700" />
+                <h3 className="text-2xl font-semibold text-stone-950">Trend graph</h3>
+              </div>
+              <p className="mt-2 text-sm leading-7 text-stone-600">
+                Quick comparison of CEDA modal price, live current price, and the
+                next predicted price from your live model.
+              </p>
+
+              {predictionChart ? (
+                <div className="mt-6 rounded-3xl border border-stone-900/8 bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] p-4">
+                  <svg
+                    aria-label="Prediction trend chart"
+                    className="h-auto w-full"
+                    viewBox={`0 0 ${predictionChart.width} ${predictionChart.height}`}
+                  >
+                    <defs>
+                      <linearGradient id="predictionArea" x1="0" x2="0" y1="0" y2="1">
+                        <stop offset="0%" stopColor="#10b981" stopOpacity="0.24" />
+                        <stop offset="100%" stopColor="#10b981" stopOpacity="0" />
+                      </linearGradient>
+                    </defs>
+                    <line
+                      stroke="#e7e5e4"
+                      strokeDasharray="6 6"
+                      strokeWidth="1"
+                      x1={predictionChart.left}
+                      x2={predictionChart.width - predictionChart.right}
+                      y1={predictionChart.height - predictionChart.bottom}
+                      y2={predictionChart.height - predictionChart.bottom}
+                    />
+                    <line
+                      stroke="#f5f5f4"
+                      strokeWidth="1"
+                      x1={predictionChart.left}
+                      x2={predictionChart.width - predictionChart.right}
+                      y1={predictionChart.top}
+                      y2={predictionChart.top}
+                    />
+                    <polygon fill="url(#predictionArea)" points={predictionChart.area} />
+                    <polyline
+                      fill="none"
+                      points={predictionChart.polyline}
+                      stroke="#0f766e"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="4"
+                    />
+                    {predictionChart.points.map((point) => (
+                      <g key={point.label}>
+                        <circle
+                          cx={point.x}
+                          cy={point.y}
+                          fill={
+                            point.tone === "predicted"
+                              ? "#10b981"
+                              : point.tone === "current"
+                                ? "#0f172a"
+                                : "#f59e0b"
+                          }
+                          r="7"
+                        />
+                        <text
+                          fill="#57534e"
+                          fontSize="12"
+                          textAnchor="middle"
+                          x={point.x}
+                          y={predictionChart.height - 16}
+                        >
+                          {point.label}
+                        </text>
+                        <text
+                          fill="#1c1917"
+                          fontSize="13"
+                          fontWeight="600"
+                          textAnchor="middle"
+                          x={point.x}
+                          y={point.y - 14}
+                        >
+                          Rs. {formatNumber(point.value)}
+                        </text>
+                      </g>
+                    ))}
+                  </svg>
+                </div>
+              ) : (
+                <div className="mt-6 rounded-2xl border border-dashed border-stone-300 bg-stone-50 px-5 py-6 text-sm leading-7 text-stone-600">
+                  Graph appears after a commodity and specific state return a live prediction.
+                </div>
+              )}
+            </div>
           </section>
 
           <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -313,6 +633,54 @@ export default async function MarketDataPage({
               </p>
             </div>
           </section>
+
+          {prediction.status === "ready" ? (
+            <section className="grid gap-4 md:grid-cols-3">
+              <div className="panel panel-strong">
+                <p className="eyebrow text-stone-500">Prediction gap vs CEDA</p>
+                <p className="mt-3 text-3xl font-semibold text-stone-950">
+                  Rs.{" "}
+                  {formatNumber(
+                    prediction.data.predicted_price - (latestPrice?.p_modal ?? 0),
+                  )}
+                </p>
+                <p className="mt-2 text-sm text-stone-600">
+                  Predicted next minus official modal price.
+                </p>
+              </div>
+              <div className="panel panel-strong">
+                <p className="eyebrow text-stone-500">Current vs CEDA</p>
+                <p className="mt-3 text-3xl font-semibold text-stone-950">
+                  Rs.{" "}
+                  {formatNumber(
+                    prediction.data.current_price - (latestPrice?.p_modal ?? 0),
+                  )}
+                </p>
+                <p className="mt-2 text-sm text-stone-600">
+                  Live signal compared with the latest official modal price.
+                </p>
+              </div>
+              <div className="panel panel-strong">
+                <p className="eyebrow text-stone-500">Action cue</p>
+                <p className="mt-3 inline-flex items-center gap-2 text-lg font-semibold text-stone-950">
+                  {isRising ? (
+                    <>
+                      <ArrowUpRight className="h-5 w-5 text-emerald-700" />
+                      Watch for upside
+                    </>
+                  ) : (
+                    <>
+                      <BarChart3 className="h-5 w-5 text-stone-500" />
+                      Hold and monitor
+                    </>
+                  )}
+                </p>
+                <p className="mt-2 text-sm text-stone-600">
+                  Rising items are highlighted above so users can focus quickly.
+                </p>
+              </div>
+            </section>
+          ) : null}
 
           <section className="panel panel-strong">
             <h3 className="text-2xl font-semibold text-stone-950">Price data</h3>
