@@ -1,19 +1,14 @@
 import Link from "next/link";
-import { 
-  ArrowLeft, 
-  TrendingUp, 
-  BarChart3, 
-  Calendar, 
-  MapPin, 
-  Package, 
-  DollarSign,
-  ChevronDown,
-  Info,
-  AlertCircle,
-  Download,
-  Filter,
-  Activity,
-  PieChart
+import {
+  ArrowUpRight,
+  BarChart3,
+  Calendar,
+  LineChart,
+  MapPin,
+  Package,
+  Sparkles,
+  TrendingDown,
+  TrendingUp,
 } from "lucide-react";
 
 import {
@@ -22,6 +17,7 @@ import {
   getCedaQuantities,
   getCedaStates,
 } from "@/lib/ceda";
+import { getLivePricePrediction } from "@/lib/price-prediction";
 
 type SearchParams = Promise<{
   commodity?: string | string[];
@@ -32,6 +28,12 @@ type SearchParams = Promise<{
 type DateWindow = {
   startDate: string;
   endDate: string;
+};
+
+type ChartPoint = {
+  label: string;
+  value: number;
+  tone: "ceda" | "current" | "predicted";
 };
 
 function readParam(value: string | string[] | undefined, fallback: string) {
@@ -91,6 +93,82 @@ function getCandidateDateWindows(range: string) {
   ];
 }
 
+function buildPredictionChart(input: {
+  cedaModal?: number;
+  currentPrice?: number;
+  predictedPrice?: number;
+}) {
+  const points: ChartPoint[] = [];
+
+  if (typeof input.cedaModal === "number") {
+    points.push({
+      label: "CEDA modal",
+      value: input.cedaModal,
+      tone: "ceda",
+    });
+  }
+
+  if (typeof input.currentPrice === "number") {
+    points.push({
+      label: "Live current",
+      value: input.currentPrice,
+      tone: "current",
+    });
+  }
+
+  if (typeof input.predictedPrice === "number") {
+    points.push({
+      label: "Predicted next",
+      value: input.predictedPrice,
+      tone: "predicted",
+    });
+  }
+
+  if (points.length < 2) {
+    return null;
+  }
+
+  const width = 640;
+  const height = 260;
+  const left = 54;
+  const right = 24;
+  const top = 24;
+  const bottom = 44;
+  const max = Math.max(...points.map((point) => point.value));
+  const min = Math.min(...points.map((point) => point.value));
+  const spread = max - min || 1;
+  const step = points.length === 1 ? 0 : (width - left - right) / (points.length - 1);
+
+  const plotted = points.map((point, index) => {
+    const x = left + step * index;
+    const y =
+      top + ((max - point.value) / spread) * (height - top - bottom);
+
+    return {
+      ...point,
+      x,
+      y,
+    };
+  });
+
+  const polyline = plotted.map((point) => `${point.x},${point.y}`).join(" ");
+  const area = `${left},${height - bottom} ${polyline} ${plotted[plotted.length - 1]?.x},${height - bottom}`;
+
+  return {
+    points: plotted,
+    polyline,
+    area,
+    width,
+    height,
+    left,
+    right,
+    top,
+    bottom,
+    max,
+    min,
+  };
+}
+
 async function loadMarketData(input: {
   commodityId: number;
   stateId: number;
@@ -127,12 +205,10 @@ async function loadMarketData(input: {
     }
   }
 
-  const fallbackWindow = windows[0];
-
   return {
     prices: [],
     quantities: [],
-    resolvedWindow: fallbackWindow,
+    resolvedWindow: windows[0],
   };
 }
 
@@ -150,11 +226,6 @@ export default async function MarketDataPage({
   );
   const selectedStateId = Number(readParam(params.state, "0"));
   const range = readParam(params.range, "90d");
-  const { prices, quantities, resolvedWindow } = await loadMarketData({
-    commodityId: selectedCommodityId,
-    stateId: selectedStateId,
-    range,
-  });
 
   const selectedCommodity = commodities.find(
     (item) => item.commodity_id === selectedCommodityId,
@@ -162,468 +233,536 @@ export default async function MarketDataPage({
   const selectedState = states.find(
     (item) => item.census_state_id === selectedStateId,
   );
+
+  const [{ prices, quantities, resolvedWindow }, prediction] = await Promise.all([
+    loadMarketData({
+      commodityId: selectedCommodityId,
+      stateId: selectedStateId,
+      range,
+    }),
+    getLivePricePrediction({
+      commodity: selectedCommodity?.commodity_disp_name,
+      state: selectedState?.census_state_name,
+    }),
+  ]);
+
   const latestPrice = sortLatestFirst(prices)[0];
   const latestQuantity = sortLatestFirst(quantities)[0];
+  const predictionChart =
+    prediction.status === "ready"
+      ? buildPredictionChart({
+          cedaModal: latestPrice?.p_modal,
+          currentPrice: prediction.data.current_price,
+          predictedPrice: prediction.data.predicted_price,
+        })
+      : null;
+
+  const isRising = prediction.status === "ready" && prediction.trend === "up";
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white" style={{ fontFamily: "'Poppins', sans-serif" }}>
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-12">
-        {/* Header Section */}
-        <div className="mb-8 lg:mb-12">
-          <div className="flex items-center gap-3 mb-6">
-            <Link 
-              href="/" 
-              className="inline-flex items-center gap-2 rounded-lg bg-white px-3 py-2 sm:px-4 sm:py-2 text-sm font-medium text-gray-600 hover:text-emerald-600 transition-colors border border-gray-200"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              <span className="hidden sm:inline">Back to home</span>
-              <span className="sm:hidden">Back</span>
-            </Link>
+    <div className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-6 py-10 sm:px-10 lg:px-12">
+      <section className="panel panel-strong">
+        <p className="eyebrow text-emerald-700">CEDA Market Data</p>
+        <div className="mt-3 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <h1 className="text-4xl font-semibold tracking-tight text-stone-950">
+              Commodity list, live prediction, and market prices
+            </h1>
+            <p className="mt-3 max-w-3xl text-sm leading-7 text-stone-600">
+              Selected commodity now shows official CEDA market data plus your live
+              price prediction API so rising-price opportunities become easy to spot.
+            </p>
           </div>
-          
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <Link className="btn-secondary" href="/">
+            Back to home
+          </Link>
+        </div>
+      </section>
+
+      <section className="grid gap-6 xl:grid-cols-[0.78fr_1.22fr]">
+        <div className="panel panel-strong">
+          <h2 className="text-2xl font-semibold text-stone-950">
+            Filters and commodities
+          </h2>
+          <form className="mt-6 grid gap-4">
             <div>
-              <div className="inline-flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-semibold text-emerald-700 mb-4">
-                <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4" />
-                CEDA Market Data
+              <label className="label" htmlFor="commodity">
+                Commodity
+              </label>
+              <select
+                className="field mt-2"
+                defaultValue={String(selectedCommodityId)}
+                id="commodity"
+                name="commodity"
+              >
+                {commodities.map((item) => (
+                  <option key={item.commodity_id} value={item.commodity_id}>
+                    {item.commodity_disp_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="label" htmlFor="state">
+                State
+              </label>
+              <select
+                className="field mt-2"
+                defaultValue={String(selectedStateId)}
+                id="state"
+                name="state"
+              >
+                <option value="0">All India</option>
+                {states.map((item) => (
+                  <option key={item.census_state_id} value={item.census_state_id}>
+                    {item.census_state_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="label" htmlFor="range">
+                Range
+              </label>
+              <select
+                className="field mt-2"
+                defaultValue={range}
+                id="range"
+                name="range"
+              >
+                <option value="30d">Last 30 days</option>
+                <option value="90d">Last 90 days</option>
+                <option value="180d">Last 180 days</option>
+              </select>
+            </div>
+            <button className="btn-primary mt-2" type="submit">
+              Load market data
+            </button>
+          </form>
+
+          <div className="mt-8">
+            <p className="label">All commodities</p>
+            <div className="mt-3 max-h-128 overflow-auto rounded-2xl border border-stone-900/8 bg-white">
+              <div className="grid divide-y divide-stone-100">
+                {commodities.map((item) => (
+                  <div
+                    key={item.commodity_id}
+                    className={`px-4 py-3 text-sm ${
+                      item.commodity_id === selectedCommodityId
+                        ? "bg-emerald-50 font-semibold text-emerald-900"
+                        : "text-stone-700"
+                    }`}
+                  >
+                    {item.commodity_disp_name}
+                  </div>
+                ))}
               </div>
-              <h1 className="text-2xl sm:text-3xl lg:text-4xl xl:text-5xl font-bold tracking-tight text-gray-900">
-                Commodity prices
-                <span className="block text-emerald-600">and market insights</span>
-              </h1>
-              <p className="mt-3 sm:mt-4 max-w-3xl text-sm sm:text-base text-gray-600 leading-relaxed">
-                This page uses CEDA Agri Market data. Commodity and state lists are
-                loaded from the official public endpoints, and protected price and
-                quantity data are requested server-side with your CEDA API key.
+            </div>
+          </div>
+        </div>
+
+        <div className="grid gap-6">
+          <section className="panel panel-strong">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <p className="eyebrow text-stone-500">Selected market</p>
+                <h2 className="mt-2 text-3xl font-semibold text-stone-950">
+                  {selectedCommodity?.commodity_disp_name ?? "Commodity"}
+                </h2>
+                <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-stone-600">
+                  <span className="inline-flex items-center gap-2">
+                    <MapPin className="h-4 w-4 text-emerald-700" />
+                    {selectedState?.census_state_name ?? "All India"}
+                  </span>
+                  <span className="inline-flex items-center gap-2">
+                    <Calendar className="h-4 w-4 text-emerald-700" />
+                    {resolvedWindow.startDate} to {resolvedWindow.endDate}
+                  </span>
+                </div>
+              </div>
+              <div className="rounded-2xl border border-emerald-900/10 bg-emerald-50 px-4 py-3 text-sm text-emerald-950">
+                {prices.length} price points • {quantities.length} quantity points
+              </div>
+            </div>
+            <p className="mt-4 text-xs leading-6 text-stone-500">
+              If CEDA has no data for the newest requested window, the page
+              automatically falls back to the latest earlier window with data.
+            </p>
+          </section>
+
+          <section className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
+            <div className="panel panel-strong overflow-hidden">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="eyebrow text-stone-500">Live prediction</p>
+                  <h3 className="mt-2 text-2xl font-semibold text-stone-950">
+                    Forecast vs current price
+                  </h3>
+                </div>
+                <div
+                  className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                    isRising
+                      ? "bg-emerald-100 text-emerald-800"
+                      : prediction.status === "ready" && prediction.trend === "down"
+                        ? "bg-amber-100 text-amber-800"
+                        : "bg-stone-100 text-stone-700"
+                  }`}
+                >
+                  {isRising
+                    ? "Price may rise"
+                    : prediction.status === "ready" && prediction.trend === "down"
+                      ? "Price may soften"
+                      : "Watchlist"}
+                </div>
+              </div>
+
+              {prediction.status === "ready" ? (
+                <>
+                  <div className="mt-6 grid gap-4 md:grid-cols-3">
+                    <div className="rounded-2xl border border-stone-900/8 bg-white px-4 py-4">
+                      <p className="eyebrow text-stone-500">Current live</p>
+                      <p className="mt-2 text-3xl font-semibold text-stone-950">
+                        Rs. {formatNumber(prediction.data.current_price)}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl border border-stone-900/8 bg-white px-4 py-4">
+                      <p className="eyebrow text-stone-500">Predicted next</p>
+                      <p className="mt-2 text-3xl font-semibold text-stone-950">
+                        Rs. {formatNumber(prediction.data.predicted_price)}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl border border-stone-900/8 bg-white px-4 py-4">
+                      <p className="eyebrow text-stone-500">Arrival</p>
+                      <p className="mt-2 text-3xl font-semibold text-stone-950">
+                        {formatNumber(prediction.data.arrival)}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div
+                    className={`mt-5 rounded-3xl border px-5 py-5 ${
+                      isRising
+                        ? "border-emerald-200 bg-[linear-gradient(135deg,#ecfdf5_0%,#f7fee7_100%)]"
+                        : prediction.trend === "down"
+                          ? "border-amber-200 bg-[linear-gradient(135deg,#fffbeb_0%,#fff7ed_100%)]"
+                          : "border-stone-200 bg-stone-50"
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div
+                        className={`mt-1 rounded-full p-2 ${
+                          isRising
+                            ? "bg-emerald-600 text-white"
+                            : prediction.trend === "down"
+                              ? "bg-amber-500 text-white"
+                              : "bg-stone-300 text-stone-800"
+                        }`}
+                      >
+                        {isRising ? (
+                          <TrendingUp className="h-4 w-4" />
+                        ) : prediction.trend === "down" ? (
+                          <TrendingDown className="h-4 w-4" />
+                        ) : (
+                          <Sparkles className="h-4 w-4" />
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-lg font-semibold text-stone-950">
+                          {isRising
+                            ? "Rising price signal detected"
+                            : prediction.trend === "down"
+                              ? "Predicted price is slightly lower"
+                              : "Predicted price is nearly flat"}
+                        </p>
+                        <p className="mt-2 text-sm leading-7 text-stone-700">
+                          {selectedCommodity?.commodity_disp_name} in{" "}
+                          {prediction.data.state} is moving from Rs.{" "}
+                          {formatNumber(prediction.data.current_price)} to Rs.{" "}
+                          {formatNumber(prediction.data.predicted_price)}.
+                          {" "}
+                          {isRising
+                            ? `That is an expected increase of Rs. ${formatNumber(
+                                prediction.change,
+                              )} (${formatNumber(prediction.changePercent)}%).`
+                            : prediction.trend === "down"
+                              ? `That is a projected drop of Rs. ${formatNumber(
+                                  Math.abs(prediction.change),
+                                )} (${formatNumber(Math.abs(prediction.changePercent))}%).`
+                              : "The API is signaling a stable near-term market."}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="mt-6 rounded-2xl border border-dashed border-stone-300 bg-stone-50 px-5 py-6 text-sm leading-7 text-stone-600">
+                  {prediction.message}
+                </div>
+              )}
+            </div>
+
+            <div className="panel panel-strong">
+              <div className="flex items-center gap-2">
+                <LineChart className="h-5 w-5 text-emerald-700" />
+                <h3 className="text-2xl font-semibold text-stone-950">Trend graph</h3>
+              </div>
+              <p className="mt-2 text-sm leading-7 text-stone-600">
+                Quick comparison of CEDA modal price, live current price, and the
+                next predicted price from your live model.
+              </p>
+
+              {predictionChart ? (
+                <div className="mt-6 rounded-3xl border border-stone-900/8 bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] p-4">
+                  <svg
+                    aria-label="Prediction trend chart"
+                    className="h-auto w-full"
+                    viewBox={`0 0 ${predictionChart.width} ${predictionChart.height}`}
+                  >
+                    <defs>
+                      <linearGradient id="predictionArea" x1="0" x2="0" y1="0" y2="1">
+                        <stop offset="0%" stopColor="#10b981" stopOpacity="0.24" />
+                        <stop offset="100%" stopColor="#10b981" stopOpacity="0" />
+                      </linearGradient>
+                    </defs>
+                    <line
+                      stroke="#e7e5e4"
+                      strokeDasharray="6 6"
+                      strokeWidth="1"
+                      x1={predictionChart.left}
+                      x2={predictionChart.width - predictionChart.right}
+                      y1={predictionChart.height - predictionChart.bottom}
+                      y2={predictionChart.height - predictionChart.bottom}
+                    />
+                    <line
+                      stroke="#f5f5f4"
+                      strokeWidth="1"
+                      x1={predictionChart.left}
+                      x2={predictionChart.width - predictionChart.right}
+                      y1={predictionChart.top}
+                      y2={predictionChart.top}
+                    />
+                    <polygon fill="url(#predictionArea)" points={predictionChart.area} />
+                    <polyline
+                      fill="none"
+                      points={predictionChart.polyline}
+                      stroke="#0f766e"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="4"
+                    />
+                    {predictionChart.points.map((point) => (
+                      <g key={point.label}>
+                        <circle
+                          cx={point.x}
+                          cy={point.y}
+                          fill={
+                            point.tone === "predicted"
+                              ? "#10b981"
+                              : point.tone === "current"
+                                ? "#0f172a"
+                                : "#f59e0b"
+                          }
+                          r="7"
+                        />
+                        <text
+                          fill="#57534e"
+                          fontSize="12"
+                          textAnchor="middle"
+                          x={point.x}
+                          y={predictionChart.height - 16}
+                        >
+                          {point.label}
+                        </text>
+                        <text
+                          fill="#1c1917"
+                          fontSize="13"
+                          fontWeight="600"
+                          textAnchor="middle"
+                          x={point.x}
+                          y={point.y - 14}
+                        >
+                          Rs. {formatNumber(point.value)}
+                        </text>
+                      </g>
+                    ))}
+                  </svg>
+                </div>
+              ) : (
+                <div className="mt-6 rounded-2xl border border-dashed border-stone-300 bg-stone-50 px-5 py-6 text-sm leading-7 text-stone-600">
+                  Graph appears after a commodity and specific state return a live prediction.
+                </div>
+              )}
+            </div>
+          </section>
+
+          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div className="panel panel-strong">
+              <p className="eyebrow text-stone-500">Latest modal price</p>
+              <p className="mt-3 text-3xl font-semibold text-stone-950">
+                Rs. {formatNumber(latestPrice?.p_modal)}
+              </p>
+              <p className="mt-2 text-sm text-stone-600">
+                {latestPrice?.t ?? "No period"} • per quintal
               </p>
             </div>
-            <div className="flex-shrink-0">
-              <div className="rounded-xl sm:rounded-2xl bg-gradient-to-r from-emerald-50 to-emerald-100 px-4 sm:px-6 py-3 sm:py-4 border border-emerald-200">
-                <div className="flex items-center gap-2 sm:gap-3">
-                  <Activity className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-600" />
-                  <div>
-                    <p className="text-[10px] sm:text-xs font-semibold text-emerald-700 uppercase tracking-wide">
-                      Data points
-                    </p>
-                    <p className="text-xl sm:text-2xl font-bold text-emerald-900">
-                      {prices.length + quantities.length}
-                    </p>
-                  </div>
-                </div>
-              </div>
+            <div className="panel panel-strong">
+              <p className="eyebrow text-stone-500">Latest minimum price</p>
+              <p className="mt-3 text-3xl font-semibold text-stone-950">
+                Rs. {formatNumber(latestPrice?.p_min)}
+              </p>
+              <p className="mt-2 text-sm text-stone-600">
+                {latestPrice?.t ?? "No period"} • per quintal
+              </p>
             </div>
-          </div>
-        </div>
-
-        <div className="flex flex-col xl:flex-row gap-6 lg:gap-8">
-          {/* Left Column - Filters & Commodities */}
-          <div className="w-full xl:w-[320px] 2xl:w-[360px] flex-shrink-0 space-y-6">
-            {/* Filters Card */}
-            <div className="rounded-xl sm:rounded-2xl bg-white shadow-lg border border-gray-100 overflow-hidden sticky top-6">
-              <div className="bg-gradient-to-r from-gray-50 to-white px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-100">
-                <div className="flex items-center gap-2">
-                  <Filter className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-600" />
-                  <h2 className="font-semibold text-gray-900 text-sm sm:text-base">Filters & Settings</h2>
-                </div>
-              </div>
-              
-              <form className="p-4 sm:p-6 space-y-4 sm:space-y-5">
-                <div>
-                  <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2" htmlFor="commodity">
-                    <div className="flex items-center gap-2">
-                      <Package className="h-3 w-3 sm:h-4 sm:w-4 text-emerald-600" />
-                      Commodity
-                    </div>
-                  </label>
-                  <div className="relative">
-                    <select
-                      className="w-full rounded-lg sm:rounded-xl border border-gray-200 bg-white px-3 sm:px-4 py-2.5 sm:py-3 text-sm text-gray-700 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 appearance-none truncate"
-                      defaultValue={String(selectedCommodityId)}
-                      id="commodity"
-                      name="commodity"
-                    >
-                      {commodities.map((item) => (
-                        <option key={item.commodity_id} value={item.commodity_id}>
-                          {item.commodity_disp_name}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-gray-400 pointer-events-none" />
-                  </div>
-                </div>
-                
-                <div>
-                  <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2" htmlFor="state">
-                    <div className="flex items-center gap-2">
-                      <MapPin className="h-3 w-3 sm:h-4 sm:w-4 text-emerald-600" />
-                      State / Region
-                    </div>
-                  </label>
-                  <div className="relative">
-                    <select
-                      className="w-full rounded-lg sm:rounded-xl border border-gray-200 bg-white px-3 sm:px-4 py-2.5 sm:py-3 text-sm text-gray-700 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 appearance-none truncate"
-                      defaultValue={String(selectedStateId)}
-                      id="state"
-                      name="state"
-                    >
-                      <option value="0">All India</option>
-                      {states.map((item) => (
-                        <option key={item.census_state_id} value={item.census_state_id}>
-                          {item.census_state_name}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-gray-400 pointer-events-none" />
-                  </div>
-                </div>
-                
-                <div>
-                  <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2" htmlFor="range">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="h-3 w-3 sm:h-4 sm:w-4 text-emerald-600" />
-                      Time Range
-                    </div>
-                  </label>
-                  <div className="relative">
-                    <select
-                      className="w-full rounded-lg sm:rounded-xl border border-gray-200 bg-white px-3 sm:px-4 py-2.5 sm:py-3 text-sm text-gray-700 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 appearance-none"
-                      defaultValue={range}
-                      id="range"
-                      name="range"
-                    >
-                      <option value="30d">Last 30 days</option>
-                      <option value="90d">Last 90 days</option>
-                      <option value="180d">Last 180 days</option>
-                    </select>
-                    <ChevronDown className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-gray-400 pointer-events-none" />
-                  </div>
-                </div>
-                
-                <button 
-                  className="w-full bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white font-semibold py-2.5 sm:py-3 px-4 sm:px-6 rounded-lg sm:rounded-xl transition-all hover:shadow-lg text-sm sm:text-base" 
-                  type="submit"
-                >
-                  Load market data
-                </button>
-              </form>
+            <div className="panel panel-strong">
+              <p className="eyebrow text-stone-500">Latest maximum price</p>
+              <p className="mt-3 text-3xl font-semibold text-stone-950">
+                Rs. {formatNumber(latestPrice?.p_max)}
+              </p>
+              <p className="mt-2 text-sm text-stone-600">
+                {latestPrice?.t ?? "No period"} • per quintal
+              </p>
             </div>
+            <div className="panel panel-strong">
+              <p className="eyebrow text-stone-500">Latest arrival quantity</p>
+              <p className="mt-3 text-3xl font-semibold text-stone-950">
+                {formatNumber(latestQuantity?.qty)}
+              </p>
+              <p className="mt-2 text-sm text-stone-600">
+                {latestQuantity?.t ?? "No period"} • reported arrival weight
+              </p>
+            </div>
+          </section>
 
-            {/* Commodities List */}
-            <div className="rounded-xl sm:rounded-2xl bg-white shadow-lg border border-gray-100 overflow-hidden">
-              <div className="bg-gradient-to-r from-gray-50 to-white px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-100">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <PieChart className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-600" />
-                    <h2 className="font-semibold text-gray-900 text-sm sm:text-base">All Commodities</h2>
-                  </div>
-                  <span className="text-[10px] sm:text-xs text-gray-500">{commodities.length} items</span>
-                </div>
+          {prediction.status === "ready" ? (
+            <section className="grid gap-4 md:grid-cols-3">
+              <div className="panel panel-strong">
+                <p className="eyebrow text-stone-500">Prediction gap vs CEDA</p>
+                <p className="mt-3 text-3xl font-semibold text-stone-950">
+                  Rs.{" "}
+                  {formatNumber(
+                    prediction.data.predicted_price - (latestPrice?.p_modal ?? 0),
+                  )}
+                </p>
+                <p className="mt-2 text-sm text-stone-600">
+                  Predicted next minus official modal price.
+                </p>
               </div>
-              
-              <div className="max-h-[300px] sm:max-h-[400px] overflow-y-auto">
-                <div className="divide-y divide-gray-100">
-                  {commodities.map((item) => (
-                    <div
-                      key={item.commodity_id}
-                      className={`px-4 sm:px-6 py-2.5 sm:py-3 text-xs sm:text-sm transition-colors ${
-                        item.commodity_id === selectedCommodityId
-                          ? "bg-emerald-50 border-l-2 sm:border-l-4 border-emerald-500 font-semibold text-emerald-900"
-                          : "text-gray-700 hover:bg-gray-50 cursor-pointer"
-                      }`}
-                    >
-                      <span className="line-clamp-2">{item.commodity_disp_name}</span>
-                    </div>
+              <div className="panel panel-strong">
+                <p className="eyebrow text-stone-500">Current vs CEDA</p>
+                <p className="mt-3 text-3xl font-semibold text-stone-950">
+                  Rs.{" "}
+                  {formatNumber(
+                    prediction.data.current_price - (latestPrice?.p_modal ?? 0),
+                  )}
+                </p>
+                <p className="mt-2 text-sm text-stone-600">
+                  Live signal compared with the latest official modal price.
+                </p>
+              </div>
+              <div className="panel panel-strong">
+                <p className="eyebrow text-stone-500">Action cue</p>
+                <p className="mt-3 inline-flex items-center gap-2 text-lg font-semibold text-stone-950">
+                  {isRising ? (
+                    <>
+                      <ArrowUpRight className="h-5 w-5 text-emerald-700" />
+                      Watch for upside
+                    </>
+                  ) : (
+                    <>
+                      <BarChart3 className="h-5 w-5 text-stone-500" />
+                      Hold and monitor
+                    </>
+                  )}
+                </p>
+                <p className="mt-2 text-sm text-stone-600">
+                  Rising items are highlighted above so users can focus quickly.
+                </p>
+              </div>
+            </section>
+          ) : null}
+
+          <section className="panel panel-strong">
+            <h3 className="text-2xl font-semibold text-stone-950">Price data</h3>
+            <p className="mt-2 text-sm leading-7 text-stone-600">
+              Prices are shown in rupees per quintal so you can compare the
+              latest market level quickly.
+            </p>
+            <div className="mt-5 overflow-auto rounded-2xl border border-stone-900/8 bg-white">
+              <table className="min-w-full text-left text-sm">
+                <thead className="bg-stone-50 text-stone-600">
+                  <tr>
+                    <th className="px-4 py-3 font-medium">Period</th>
+                    <th className="px-4 py-3 font-medium">Modal Price (Rs./quintal)</th>
+                    <th className="px-4 py-3 font-medium">Min Price (Rs./quintal)</th>
+                    <th className="px-4 py-3 font-medium">Max Price (Rs./quintal)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {prices.map((item) => (
+                    <tr key={item.t} className="border-t border-stone-100">
+                      <td className="px-4 py-3 text-stone-800">{item.t}</td>
+                      <td className="px-4 py-3 text-stone-800">
+                        Rs. {formatNumber(item.p_modal)}
+                      </td>
+                      <td className="px-4 py-3 text-stone-800">
+                        Rs. {formatNumber(item.p_min)}
+                      </td>
+                      <td className="px-4 py-3 text-stone-800">
+                        Rs. {formatNumber(item.p_max)}
+                      </td>
+                    </tr>
                   ))}
-                </div>
-              </div>
+                  {prices.length === 0 ? (
+                    <tr>
+                      <td className="px-4 py-5 text-stone-500" colSpan={4}>
+                        No price data returned for this filter set.
+                      </td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
             </div>
-          </div>
+          </section>
 
-          {/* Right Column - Market Data */}
-          <div className="flex-1 min-w-0 space-y-6">
-            {/* Selected Market Overview */}
-            <div className="rounded-xl sm:rounded-2xl bg-gradient-to-r from-emerald-900 to-emerald-800 text-white p-4 sm:p-6 overflow-hidden relative">
-              <div className="absolute top-0 right-0 w-48 h-48 sm:w-64 sm:h-64 bg-emerald-500/20 rounded-full blur-3xl" />
-              <div className="relative z-10">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs sm:text-sm font-semibold text-emerald-200 uppercase tracking-wide">
-                      Selected Market
-                    </p>
-                    <h2 className="mt-2 text-xl sm:text-2xl lg:text-3xl font-bold break-words">
-                      {selectedCommodity?.commodity_disp_name ?? "Commodity"}
-                    </h2>
-                    <div className="flex flex-wrap items-center gap-2 mt-2">
-                      <MapPin className="h-3 w-3 sm:h-4 sm:w-4 text-emerald-300 flex-shrink-0" />
-                      <p className="text-xs sm:text-sm text-emerald-200 break-words">
-                        {selectedState?.census_state_name ?? "All India"}
-                      </p>
-                      <Calendar className="h-3 w-3 sm:h-4 sm:w-4 text-emerald-300 ml-1 sm:ml-2 flex-shrink-0" />
-                      <p className="text-xs sm:text-sm text-emerald-200">
-                        {resolvedWindow.startDate} to {resolvedWindow.endDate}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex-shrink-0 rounded-lg sm:rounded-xl bg-white/10 backdrop-blur-sm px-3 sm:px-4 py-1.5 sm:py-2">
-                    <p className="text-[10px] sm:text-xs font-semibold text-emerald-200">Data points</p>
-                    <p className="text-xl sm:text-2xl font-bold">{prices.length + quantities.length}</p>
-                  </div>
-                </div>
-                <div className="mt-3 sm:mt-4 rounded-lg bg-white/5 backdrop-blur-sm p-2 sm:p-3">
-                  <div className="flex items-start gap-2">
-                    <Info className="h-3 w-3 sm:h-4 sm:w-4 text-emerald-300 flex-shrink-0 mt-0.5" />
-                    <p className="text-[10px] sm:text-xs text-emerald-200">
-                      If CEDA has no data for the newest requested window, the page automatically falls back to the latest earlier window with data.
-                    </p>
-                  </div>
-                </div>
-              </div>
+          <section className="panel panel-strong">
+            <h3 className="text-2xl font-semibold text-stone-950">Quantity data</h3>
+            <p className="mt-2 text-sm leading-7 text-stone-600">
+              Arrival quantity is shown separately so the commodity weight flow
+              is easier to understand alongside price movement.
+            </p>
+            <div className="mt-5 overflow-auto rounded-2xl border border-stone-900/8 bg-white">
+              <table className="min-w-full text-left text-sm">
+                <thead className="bg-stone-50 text-stone-600">
+                  <tr>
+                    <th className="px-4 py-3 font-medium">Period</th>
+                    <th className="px-4 py-3 font-medium">Commodity</th>
+                    <th className="px-4 py-3 font-medium">Arrival Quantity / Weight</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {quantities.map((item) => (
+                    <tr key={item.t} className="border-t border-stone-100">
+                      <td className="px-4 py-3 text-stone-800">{item.t}</td>
+                      <td className="px-4 py-3 text-stone-800">{item.cmdty}</td>
+                      <td className="px-4 py-3 text-stone-800">
+                        {formatNumber(item.qty)}
+                      </td>
+                    </tr>
+                  ))}
+                  {quantities.length === 0 ? (
+                    <tr>
+                      <td className="px-4 py-5 text-stone-500" colSpan={3}>
+                        No quantity data returned for this filter set.
+                      </td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
             </div>
-
-            {/* KPI Cards */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-              <div className="rounded-lg sm:rounded-xl bg-white shadow-lg border border-gray-100 p-3 sm:p-4 hover:shadow-xl transition-shadow">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-[10px] sm:text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                    Modal Price
-                  </p>
-                  <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 text-emerald-500" />
-                </div>
-                <p className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 break-words">
-                  ₹{formatNumber(latestPrice?.p_modal)}
-                </p>
-                <p className="mt-1 text-[10px] sm:text-xs text-gray-500 truncate">
-                  {latestPrice?.t ?? "No period"} • per quintal
-                </p>
-              </div>
-              
-              <div className="rounded-lg sm:rounded-xl bg-white shadow-lg border border-gray-100 p-3 sm:p-4 hover:shadow-xl transition-shadow">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-[10px] sm:text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                    Min Price
-                  </p>
-                  <DollarSign className="h-3 w-3 sm:h-4 sm:w-4 text-blue-500" />
-                </div>
-                <p className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 break-words">
-                  ₹{formatNumber(latestPrice?.p_min)}
-                </p>
-                <p className="mt-1 text-[10px] sm:text-xs text-gray-500 truncate">
-                  {latestPrice?.t ?? "No period"} • per quintal
-                </p>
-              </div>
-              
-              <div className="rounded-lg sm:rounded-xl bg-white shadow-lg border border-gray-100 p-3 sm:p-4 hover:shadow-xl transition-shadow">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-[10px] sm:text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                    Max Price
-                  </p>
-                  <BarChart3 className="h-3 w-3 sm:h-4 sm:w-4 text-amber-500" />
-                </div>
-                <p className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 break-words">
-                  ₹{formatNumber(latestPrice?.p_max)}
-                </p>
-                <p className="mt-1 text-[10px] sm:text-xs text-gray-500 truncate">
-                  {latestPrice?.t ?? "No period"} • per quintal
-                </p>
-              </div>
-              
-              <div className="rounded-lg sm:rounded-xl bg-white shadow-lg border border-gray-100 p-3 sm:p-4 hover:shadow-xl transition-shadow">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-[10px] sm:text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                    Arrival Qty
-                  </p>
-                  <Package className="h-3 w-3 sm:h-4 sm:w-4 text-purple-500" />
-                </div>
-                <p className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 break-words">
-                  {formatNumber(latestQuantity?.qty)}
-                </p>
-                <p className="mt-1 text-[10px] sm:text-xs text-gray-500 truncate">
-                  {latestQuantity?.t ?? "No period"}
-                </p>
-              </div>
-            </div>
-
-            {/* Price Data Table */}
-            <div className="rounded-xl sm:rounded-2xl bg-white shadow-lg border border-gray-100 overflow-hidden">
-              <div className="bg-gradient-to-r from-gray-50 to-white px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-100">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                  <div>
-                    <h3 className="text-base sm:text-lg lg:text-xl font-bold text-gray-900">Price Data</h3>
-                    <p className="text-xs sm:text-sm text-gray-500 mt-1">
-                      Prices are shown in rupees per quintal
-                    </p>
-                  </div>
-                  {prices.length > 0 && (
-                    <button className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-200 px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm text-gray-600 hover:bg-gray-50 transition-colors">
-                      <Download className="h-3 w-3 sm:h-4 sm:w-4" />
-                      <span className="hidden sm:inline">Export</span>
-                    </button>
-                  )}
-                </div>
-              </div>
-              
-              <div className="overflow-x-auto">
-                <div className="inline-block min-w-full align-middle">
-                  <table className="min-w-full">
-                    <thead className="bg-gray-50 border-b border-gray-200">
-                      <tr>
-                        <th className="px-3 sm:px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Period</th>
-                        <th className="px-3 sm:px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Modal</th>
-                        <th className="px-3 sm:px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Min</th>
-                        <th className="px-3 sm:px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Max</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {prices.map((item, index) => (
-                        <tr key={item.t} className={`hover:bg-gray-50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}`}>
-                          <td className="px-3 sm:px-6 py-3 text-xs sm:text-sm font-medium text-gray-900 whitespace-nowrap">{item.t}</td>
-                          <td className="px-3 sm:px-6 py-3 text-xs sm:text-sm text-gray-700">₹{formatNumber(item.p_modal)}</td>
-                          <td className="px-3 sm:px-6 py-3 text-xs sm:text-sm text-gray-700">₹{formatNumber(item.p_min)}</td>
-                          <td className="px-3 sm:px-6 py-3 text-xs sm:text-sm text-gray-700">₹{formatNumber(item.p_max)}</td>
-                        </tr>
-                      ))}
-                      {prices.length === 0 && (
-                        <tr>
-                          <td colSpan={4} className="px-3 sm:px-6 py-8 sm:py-12 text-center">
-                            <div className="flex flex-col items-center gap-2">
-                              <AlertCircle className="h-6 w-6 sm:h-8 sm:w-8 text-gray-400" />
-                              <p className="text-xs sm:text-sm text-gray-500">No price data returned for this filter set</p>
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-
-            {/* Quantity Data Table */}
-            <div className="rounded-xl sm:rounded-2xl bg-white shadow-lg border border-gray-100 overflow-hidden">
-              <div className="bg-gradient-to-r from-gray-50 to-white px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-100">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                  <div>
-                    <h3 className="text-base sm:text-lg lg:text-xl font-bold text-gray-900">Quantity Data</h3>
-                    <p className="text-xs sm:text-sm text-gray-500 mt-1">
-                      Arrival quantity shown separately
-                    </p>
-                  </div>
-                  {quantities.length > 0 && (
-                    <button className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-200 px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm text-gray-600 hover:bg-gray-50 transition-colors">
-                      <Download className="h-3 w-3 sm:h-4 sm:w-4" />
-                      <span className="hidden sm:inline">Export</span>
-                    </button>
-                  )}
-                </div>
-              </div>
-              
-              <div className="overflow-x-auto">
-                <div className="inline-block min-w-full align-middle">
-                  <table className="min-w-full">
-                    <thead className="bg-gray-50 border-b border-gray-200">
-                      <tr>
-                        <th className="px-3 sm:px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Period</th>
-                        <th className="px-3 sm:px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Commodity</th>
-                        <th className="px-3 sm:px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Arrival Quantity</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {quantities.map((item, index) => (
-                        <tr key={item.t} className={`hover:bg-gray-50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}`}>
-                          <td className="px-3 sm:px-6 py-3 text-xs sm:text-sm font-medium text-gray-900 whitespace-nowrap">{item.t}</td>
-                          <td className="px-3 sm:px-6 py-3 text-xs sm:text-sm text-gray-700 break-words max-w-[150px] sm:max-w-none">{item.cmdty}</td>
-                          <td className="px-3 sm:px-6 py-3 text-xs sm:text-sm font-semibold text-gray-900">{formatNumber(item.qty)}</td>
-                        </tr>
-                      ))}
-                      {quantities.length === 0 && (
-                        <tr>
-                          <td colSpan={3} className="px-3 sm:px-6 py-8 sm:py-12 text-center">
-                            <div className="flex flex-col items-center gap-2">
-                              <AlertCircle className="h-6 w-6 sm:h-8 sm:w-8 text-gray-400" />
-                              <p className="text-xs sm:text-sm text-gray-500">No quantity data returned for this filter set</p>
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          </div>
+          </section>
         </div>
-      </div>
-
-      {/* Add global styles for animations and fonts */}
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap');
-        
-        * {
-          font-family: 'Poppins', sans-serif;
-        }
-        
-        @keyframes fade-in {
-          from {
-            opacity: 0;
-            transform: translateY(20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-        
-        .animate-fade-in {
-          animation: fade-in 0.6s ease-out;
-        }
-        
-        /* Custom scrollbar */
-        .overflow-y-auto::-webkit-scrollbar {
-          width: 6px;
-        }
-        
-        .overflow-y-auto::-webkit-scrollbar-track {
-          background: #f1f1f1;
-          border-radius: 10px;
-        }
-        
-        .overflow-y-auto::-webkit-scrollbar-thumb {
-          background: #c1c1c1;
-          border-radius: 10px;
-        }
-        
-        .overflow-y-auto::-webkit-scrollbar-thumb:hover {
-          background: #a8a8a8;
-        }
-        
-        .overflow-x-auto::-webkit-scrollbar {
-          height: 6px;
-        }
-        
-        .overflow-x-auto::-webkit-scrollbar-track {
-          background: #f1f1f1;
-          border-radius: 10px;
-        }
-        
-        .overflow-x-auto::-webkit-scrollbar-thumb {
-          background: #c1c1c1;
-          border-radius: 10px;
-        }
-        
-        /* Text truncation */
-        .truncate {
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
-        
-        .line-clamp-2 {
-          display: -webkit-box;
-          -webkit-line-clamp: 2;
-          -webkit-box-orient: vertical;
-          overflow: hidden;
-        }
-      `}</style>
+      </section>
     </div>
   );
 }

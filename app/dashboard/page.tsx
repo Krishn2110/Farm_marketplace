@@ -1,3 +1,22 @@
+﻿import Image from "next/image";
+import {
+  AlertCircle,
+  ArrowRight,
+  CheckCircle2,
+  Clock,
+  CreditCard,
+  LayoutDashboard,
+  MapPin,
+  MessageSquare,
+  Package,
+  ShoppingBag,
+  Star,
+  TrendingUp,
+  Truck,
+  User,
+  Users,
+} from "lucide-react";
+
 import {
   AdminApprovalForm,
   FarmerListingForm,
@@ -9,258 +28,38 @@ import {
 import { ensureSession } from "@/lib/auth";
 import { getDashboardData } from "@/lib/market";
 import { LoadingLink } from "@/app/ui/navigation-progress";
-import { 
-  LayoutDashboard, 
-  User, 
-  Package, 
-  TrendingUp, 
-  ShoppingBag, 
-  Truck, 
-  CreditCard,
-  Star,
-  MessageSquare,
-  CheckCircle2,
-  Clock,
-  MapPin,
-  Users,
-  Calendar,
-  ArrowRight,
-  AlertCircle,
-} from "lucide-react";
+
+function isUploadedListingImage(src: string) {
+  return src.startsWith("/uploads/listings/");
+}
 
 export default async function DashboardPage() {
   const session = await ensureSession();
-  const dashboard = await getDashboardData(session.userId);
+  const dashboard = await getDashboardData(session!.userId);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white" style={{ fontFamily: "'Poppins', sans-serif" }}>
       <div className="mx-auto max-w-7xl px-6 py-8 sm:px-8 lg:px-10 lg:py-10">
-        
-        {/* Welcome Header */}
-        <div className="mb-8">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="inline-flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-semibold text-emerald-700">
-              <LayoutDashboard className="h-3 w-3" />
-              {dashboard.user.role} dashboard
-            </div>
-          </div>
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl lg:text-5xl">
-                Welcome back,
-                <span className="block text-emerald-600 mt-1">{dashboard.user.name}</span>
-              </h1>
-              <p className="mt-4 max-w-2xl text-base text-gray-600 leading-relaxed">
-                {dashboard.heroText}
-              </p>
-            </div>
-            
-            {/* User Info Card */}
-            <div className="flex-shrink-0 rounded-2xl bg-white shadow-md border border-gray-100 p-5 min-w-[240px]">
-              <div className="flex items-start gap-3">
-                <div className="rounded-full bg-emerald-100 p-2">
-                  <User className="h-5 w-5 text-emerald-600" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-gray-900">Account Details</p>
-                  <div className="mt-2 space-y-1">
-                    <div className="flex items-center gap-2 text-xs text-gray-600">
-                      <MapPin className="h-3 w-3" />
-                      <span>{dashboard.user.location}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-gray-600">
-                      <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
-                      <span>Trust score {dashboard.user.rating}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-gray-600">
-                      <Users className="h-3 w-3" />
-                      <span>{dashboard.user.reviewCount} review{dashboard.user.reviewCount !== 1 ? 's' : ''}</span>
-                    </div>
-                  </div>
-                  <p className="mt-2 text-xs text-gray-500">
-                    Languages: {dashboard.user.languages.join(", ") || "English"}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <div className="mb-8 flex items-center gap-2"><div className="inline-flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-semibold text-emerald-700"><LayoutDashboard className="h-3 w-3" />{dashboard.user.role} dashboard</div></div>
 
-        {/* Metrics Cards */}
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-10">
-          {dashboard.metrics.map((metric) => (
-            <div
-              key={metric.label}
-              className="group rounded-2xl bg-white shadow-md hover:shadow-xl transition-all duration-300 border border-gray-100 p-6 hover:-translate-y-1"
-            >
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                {metric.label}
-              </p>
-              <p className="mt-3 text-3xl font-bold text-gray-900">
-                {metric.value}
-              </p>
-              <p className="mt-2 text-sm text-gray-600 leading-relaxed">
-                {metric.description}
-              </p>
-            </div>
-          ))}
+        <div className="mb-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          {dashboard.metrics.map((metric) => <div key={metric.label} className="rounded-2xl border border-gray-100 bg-white p-6 shadow-md"><p className="text-xs font-semibold uppercase tracking-wide text-gray-500">{metric.label}</p><p className="mt-3 text-3xl font-bold text-gray-900">{metric.value}</p><p className="mt-2 text-sm leading-relaxed text-gray-600">{metric.description}</p></div>)}
         </div>
 
         <div className="grid gap-8 xl:grid-cols-2">
-          {/* Left Column */}
           <div className="space-y-8">
-            {/* Profile Section */}
-            <div className="rounded-2xl bg-white shadow-md border border-gray-100 overflow-hidden">
-              <div className="border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white px-6 py-5">
-                <div className="flex items-center gap-2">
-                  <User className="h-5 w-5 text-emerald-600" />
-                  <h2 className="text-xl font-bold text-gray-900">Profile Information</h2>
-                </div>
-                <p className="mt-1 text-sm text-gray-600">
-                  Keep location, farm type, and language preferences accurate for better buyer matching.
-                </p>
-              </div>
-              <div className="p-6">
-                <ProfileForm user={dashboard.user} />
-              </div>
-            </div>
+            <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-md"><div className="border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white px-6 py-5"><div className="flex items-center gap-2"><User className="h-5 w-5 text-emerald-600" /><h2 className="text-xl font-bold text-gray-900">Profile Information</h2></div></div><div className="p-6"><ProfileForm user={dashboard.user} /></div></div>
 
-            {/* Farmer Specific: Add Product */}
             {dashboard.user.role === "farmer" && (
-              <div className="rounded-2xl bg-white shadow-md border border-gray-100 overflow-hidden">
-                <div className="border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white px-6 py-5">
-                  <div className="flex items-center gap-2">
-                    <Package className="h-5 w-5 text-emerald-600" />
-                    <h2 className="text-xl font-bold text-gray-900">Add New Product</h2>
-                  </div>
-                  <p className="mt-1 text-sm text-gray-600">
-                    Publish vegetables, fruits, or grains with live inventory and delivery options.
-                  </p>
-                </div>
-                <div className="p-6">
-                  <FarmerListingForm location={dashboard.user.location} />
-                </div>
-              </div>
+              <>
+                <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-md"><div className="border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white px-6 py-5"><div className="flex items-center gap-2"><Package className="h-5 w-5 text-emerald-600" /><h2 className="text-xl font-bold text-gray-900">Add New Product</h2></div></div><div className="p-6"><FarmerListingForm location={dashboard.user.location} /></div></div>
+                <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-md"><div className="border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white px-6 py-5"><div className="flex items-center justify-between"><div className="flex items-center gap-2"><Package className="h-5 w-5 text-emerald-600" /><h2 className="text-xl font-bold text-gray-900">Your Listings</h2></div><span className="rounded-full bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-700">{dashboard.myProducts.length} listing{dashboard.myProducts.length !== 1 ? "s" : ""}</span></div></div><div className="p-6"><div className="grid gap-5 md:grid-cols-2">{dashboard.myProducts.map((product) => <article key={product.id} className="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm"><div className="relative h-44 overflow-hidden bg-stone-100"><Image alt={product.title} className="object-cover" fill sizes="(max-width: 1280px) 100vw, 33vw" src={product.images[0] || "/produce-placeholder.svg"} unoptimized={isUploadedListingImage(product.images[0] || "/produce-placeholder.svg")} /></div><div className="p-5"><p className="text-xs font-semibold uppercase tracking-wide text-emerald-600">{product.category}</p><h3 className="mt-1 text-lg font-bold text-gray-900">{product.title}</h3></div></article>)}</div></div></div>
+              </>
             )}
 
-            {/* Non-Farmer: Marketplace Signals */}
-            {dashboard.user.role !== "farmer" && (
-              <div className="rounded-2xl bg-white shadow-md border border-gray-100 overflow-hidden">
-                <div className="border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white px-6 py-5">
-                  <div className="flex items-center gap-2">
-                    <TrendingUp className="h-5 w-5 text-emerald-600" />
-                    <h2 className="text-xl font-bold text-gray-900">Marketplace Signals</h2>
-                  </div>
-                  <p className="mt-1 text-sm text-gray-600">
-                    Key insights and trends in your marketplace
-                  </p>
-                </div>
-                <div className="p-6">
-                  <div className="grid gap-4">
-                    {dashboard.signals.map((signal) => (
-                      <div
-                        key={signal.title}
-                        className="rounded-xl bg-gray-50 border border-gray-100 p-5 hover:bg-gray-100 transition-colors"
-                      >
-                        <p className="font-semibold text-gray-900">{signal.title}</p>
-                        <p className="mt-2 text-sm text-gray-600 leading-relaxed">
-                          {signal.description}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Buyer Listings */}
-            {dashboard.user.role === "buyer" && (
-              <div className="rounded-2xl bg-white shadow-md border border-gray-100 overflow-hidden">
-                <div className="border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white px-6 py-5">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <ShoppingBag className="h-5 w-5 text-emerald-600" />
-                      <h2 className="text-xl font-bold text-gray-900">Available Listings</h2>
-                    </div>
-                    <span className="rounded-full bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-700">
-                      {dashboard.listingProducts.length} listing{dashboard.listingProducts.length !== 1 ? "s" : ""}
-                    </span>
-                  </div>
-                  <p className="mt-1 text-sm text-gray-600">
-                    Browse fresh stock from farmers and jump into negotiation when something fits.
-                  </p>
-                </div>
-                <div className="p-6">
-                  <div className="grid gap-5 md:grid-cols-2">
-                    {dashboard.listingProducts.length === 0 ? (
-                      <div className="col-span-2 rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 p-8 text-center">
-                        <Package className="h-10 w-10 text-gray-400 mx-auto mb-3" />
-                        <p className="text-sm text-gray-600">No farmer listings are available right now.</p>
-                      </div>
-                    ) : (
-                      dashboard.listingProducts.map((product) => (
-                        <article
-                          key={product.id}
-                          className="rounded-xl border border-gray-100 bg-white shadow-sm hover:shadow-md transition-shadow overflow-hidden"
-                        >
-                          <div className="bg-gradient-to-r from-emerald-50 to-white px-5 py-4 border-b border-gray-100">
-                            <p className="text-xs font-semibold text-emerald-600 uppercase tracking-wide">
-                              {product.category}
-                            </p>
-                            <h3 className="mt-1 text-lg font-bold text-gray-900">
-                              {product.title}
-                            </h3>
-                          </div>
-                          <div className="p-5 space-y-3">
-                            <div className="flex items-center gap-2 text-sm text-gray-600">
-                              <User className="h-4 w-4" />
-                              <span>{product.farmerName}</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-sm text-gray-600">
-                              <MapPin className="h-4 w-4" />
-                              <span>{product.location}</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-sm text-gray-600">
-                              <Calendar className="h-4 w-4" />
-                              <span>Harvested on {product.harvestDate}</span>
-                            </div>
-                            <div className="grid grid-cols-2 gap-3 pt-2">
-                              <div className="rounded-lg bg-gray-50 p-3">
-                                <p className="text-xs text-gray-500">Price</p>
-                                <p className="text-lg font-bold text-gray-900">
-                                  ₹{product.price}/{product.unit}
-                                </p>
-                              </div>
-                              <div className="rounded-lg bg-gray-50 p-3">
-                                <p className="text-xs text-gray-500">Stock</p>
-                                <p className="text-lg font-bold text-gray-900">
-                                  {product.quantity}{product.unit}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="rounded-lg bg-emerald-50 p-3">
-                              <p className="text-sm text-emerald-800">
-                                {product.freshnessNote ?? "Freshly available for buyers."}
-                              </p>
-                            </div>
-                            <LoadingLink
-                              className="inline-flex items-center gap-2 text-sm font-semibold text-emerald-700 hover:text-emerald-800"
-                              href={`/listings/${product.id}`}
-                            >
-                              View listing
-                              <ArrowRight className="h-4 w-4" />
-                            </LoadingLink>
-                          </div>
-                        </article>
-                      ))
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
+            {dashboard.user.role !== "farmer" && <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-md"><div className="border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white px-6 py-5"><div className="flex items-center gap-2"><TrendingUp className="h-5 w-5 text-emerald-600" /><h2 className="text-xl font-bold text-gray-900">Marketplace Signals</h2></div></div><div className="p-6"><div className="grid gap-4">{dashboard.signals.map((signal) => <div key={signal.title} className="rounded-xl border border-gray-100 bg-gray-50 p-5"><p className="font-semibold text-gray-900">{signal.title}</p><p className="mt-2 text-sm leading-relaxed text-gray-600">{signal.description}</p></div>)}</div></div></div>}
           </div>
 
-          {/* Right Column */}
           <div className="space-y-8">
             {/* Negotiations Section */}
             <div className="rounded-2xl bg-white shadow-md border border-gray-100 overflow-hidden">
@@ -522,15 +321,6 @@ export default async function DashboardPage() {
           </div>
         </div>
       </div>
-
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap');
-        
-        * {
-          font-family: 'Poppins', sans-serif;
-        }
-      `}</style>
     </div>
   );
 }
-
