@@ -1,9 +1,16 @@
-import "server-only";
-
-import { acceptOfferAction, rejectOfferAction } from "@/app/actions";
-import { getMandiComparisonForListing } from "@/lib/mandi";
-import { getReviewsForUser, getStore, getUserById, getUserReviewStats } from "@/lib/store";
 import type { OfferThreadView } from "@/lib/types";
+
+async function getStoreApi() {
+  return import("@/lib/store");
+}
+
+async function getMandiApi() {
+  return import("@/lib/mandi");
+}
+
+async function getActionsApi() {
+  return import("@/app/actions");
+}
 
 function formatCurrency(value: number) {
   return `Rs. ${value}`;
@@ -22,11 +29,13 @@ function estimateDelivery(location: string) {
 }
 
 export async function getFeaturedProducts() {
+  const { getStore } = await getStoreApi();
   const store = await getStore();
   return store.products.slice(0, 3);
 }
 
 export async function getMarketplaceSnapshot() {
+  const { getStore } = await getStoreApi();
   const store = await getStore();
   return {
     farmers: store.users.filter((user) => user.role === "farmer" && user.approved)
@@ -37,16 +46,20 @@ export async function getMarketplaceSnapshot() {
 }
 
 export async function getCategories() {
+  const { getStore } = await getStoreApi();
   const store = await getStore();
   return [...new Set(store.products.map((product) => product.category))];
 }
 
 export async function getLocationOptions() {
+  const { getStore } = await getStoreApi();
   const store = await getStore();
   return [...new Set(store.products.map((product) => product.location))];
 }
 
 export async function getListingsWithContext() {
+  const { getStore, getUserById, getUserReviewStats } = await getStoreApi();
+  const { getMandiComparisonForListing } = await getMandiApi();
   const store = await getStore();
 
   return Promise.all(
@@ -102,6 +115,9 @@ export async function getListingsMarketPulse() {
 }
 
 export async function getDashboardData(userId: string) {
+  const { getReviewsForUser, getStore, getUserById, getUserReviewStats } =
+    await getStoreApi();
+  const { acceptOfferAction, rejectOfferAction } = await getActionsApi();
   const store = await getStore();
   const user = store.users.find((entry) => entry.id === userId);
 
@@ -300,6 +316,7 @@ export async function getDashboardData(userId: string) {
 }
 
 export async function getOfferThread(offerId: string, currentUserId: string) {
+  const { getStore, getUserById } = await getStoreApi();
   const store = await getStore();
   const offer = store.offers.find((entry) => entry.id === offerId);
 
